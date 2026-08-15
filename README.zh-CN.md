@@ -15,7 +15,7 @@ DSH Stack 是 DeepSeek Harness 的**可复现分发层**。它让一套已经能
 
 ## 当前状态
 
-`v0.1.0-reference-v10` 是**公开参考版本 / RC 预发布**，不是稳定版。正式 `v0.1.0` 标签需要等待 arm64 原生验证和 Apple Developer ID 签名公证完成。x86_64 非开发者 UAT 已 **PASS**。
+`v0.1.0-reference-v10` 是**公开参考版本 / RC 预发布**，不是稳定版。arm64 原生 Freeze/Verify/Package 已通过，但 arm64 App/真实 Agent UAT 以及 Apple Developer ID 签名公证仍未完成。x86_64 非开发者 UAT 已 **PASS**。
 
 产品需求文档：[PRD.md](PRD.md)  
 实现计划：[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
@@ -44,6 +44,18 @@ x86_64 打包验证于 2026-08-16 在 Intel 开发 Mac 上完成，覆盖了完�
 - 全新生成的 x86_64 发布 App 返回 `RELEASE_X64_PASS`
 - 三次成功会话的元数据均记录 `turn/end: completed`
 
+### 打包端到端 — PASS（arm64 原生 CI）
+
+2026-08-16，GitHub Actions `31899143451` 在原生 `macos-14` arm64 runner 上完成了同一条标准路径：
+
+```text
+官方 Profile → Freeze → Verify / Prove → Materialize → Package → DMG
+```
+
+- 原生 runner 架构检查通过，Runtime receipt 为 `PASS`，`cacheUsed: false`，`environment.arch` 为 `arm64`
+- `DSH-Stack-Reference-macos-arm64.dmg`、SHA-256 sidecar 和 verification receipt 已上传到公开 Reference Release
+- 这证明的是原生 arm64 打包，不等于已经在 Apple Silicon 实机上手动启动 App 或完成真实 Agent 对话
+
 ### 非开发者 UAT — PASS（x86_64）
 
 2026-08-16 在第二台非开发者 Intel Mac 上完成了完整的黑盒验证路径，无需终端或开发者干预：
@@ -64,7 +76,7 @@ x86_64 打包验证于 2026-08-16 在 Intel 开发 Mac 上完成，覆盖了完�
 |---|---|
 | x86_64 打包 & Agent E2E | ✅ PASS |
 | x86_64 非开发者 UAT | ✅ PASS |
-| arm64 原生构建 | ⏳ 构建路径已准备，无 Apple Silicon 实机验证 |
+| arm64 原生打包 | ✅ CI Freeze/Verify/Package/DMG PASS；App 启动和真实 Agent 仍待 Apple Silicon 实机 |
 | Universal Binary | ❌ 未生产，采用分架构独立产出 |
 | Apple Developer ID 签名 | ⏳ 仅 Apple Development 身份，无 Developer ID Application 身份 |
 | Hardened Runtime + 公证 | ⏳ 外部凭据阻塞 |

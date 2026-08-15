@@ -14,7 +14,7 @@ inspect → preflight → freeze → verify → run --clean
 
 The core reproducibility path is implemented and has a real x86_64 single-machine proof. The authoritative product requirements are in [`PRD.md`](PRD.md), and the executable mapping is in [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
-The public `v0.1.0-reference-v10` release is a **Reference / RC pre-release**, not Stable. The formal `v0.1.0` tag must wait for native arm64 validation and Developer ID signing/notarization. x86_64 clean-machine UAT is now **PASS**.
+The public `v0.1.0-reference-v10` release is a **Reference / RC pre-release**, not Stable. Native arm64 Freeze/Verify/Package now passes, but arm64 App/Live Agent UAT and Developer ID signing/notarization remain open. x86_64 clean-machine UAT is **PASS**.
 
 ## Validation status
 
@@ -44,6 +44,18 @@ On **2026-08-16 Asia/Shanghai**, the current v10 Native Shell and the freshly ge
 - The fresh x86_64 release App returned `RELEASE_X64_PASS` with another completed turn.
 - An earlier invalid-key session remains recorded as `401 AUTH` failure evidence; it is not counted as PASS.
 
+### Packaging E2E — PASS (arm64 native CI)
+
+On **2026-08-16 Asia/Shanghai**, GitHub Actions run `31899143451` completed the same standard path on a native `macos-14` arm64 runner:
+
+```text
+official Profile → Freeze → Verify / Prove → Materialize → Package → DMG
+```
+
+- Native runner architecture checks passed; the Runtime receipt is `PASS`, `cacheUsed: false`, and `environment.arch` is `arm64`.
+- `DSH-Stack-Reference-macos-arm64.dmg`, its SHA-256 sidecar, and the verification receipt were uploaded to the public Reference Release.
+- The DMG was created and verified by the same release script. This proves native arm64 packaging, not yet a manual arm64 App launch or real arm64 Agent turn.
+
 ### Clean-machine UAT — PASS (x86_64)
 
 On **2026-08-16 Asia/Shanghai**, a second non-developer Intel Mac completed the full black-box path without Terminal or developer intervention. The app was downloaded from the release, installed, configured with a real API key (manually typed; `⌘V` paste also verified), completed a real Agent turn, and survived a quit-and-relaunch cycle with persisted credentials. No Node, pnpm, DSH CLI, or Terminal was needed.
@@ -52,7 +64,7 @@ On **2026-08-16 Asia/Shanghai**, a second non-developer Intel Mac completed the 
 
 - `v0.1.0-reference-v10`: public Reference / RC pre-release; preserved as the first public validation release.
 - x86_64: local Packaging E2E, Live Agent E2E, and clean-machine UAT all PASS; current artifact is ad-hoc signed.
-- arm64: build path and native-runner workflow are prepared, but no native Apple Silicon build/Verify/Package/App/Agent evidence exists; no arm64 asset is claimed.
+- arm64: native CI Freeze/Verify/Package/DMG PASS and assets are published; native App launch, Live Agent E2E, and clean-machine UAT remain PENDING because this Intel Mac cannot execute the arm64 App.
 - Universal: not produced; separate architecture assets are used instead.
 - Apple Developer signing, Hardened Runtime with a Developer ID identity, notarization, and stapling: PENDING / external credential blocked. The machine has an Apple Development identity only, not a Developer ID Application identity.
 - Formal Stable `v0.1.0`: not created and not recommended yet.

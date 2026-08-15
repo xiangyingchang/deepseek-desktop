@@ -44,6 +44,20 @@ The saved official credential was exercised without exposing its value. On 2026-
 - The freshly generated x86_64 release App returned `RELEASE_X64_PASS` from a completed real turn.
 - Session metadata recorded `turn/end: completed` for all three successful turns. A separate earlier invalid-key session recorded `401 AUTH` and remains failure evidence.
 
+### Packaging E2E — PASS (arm64 native CI)
+
+GitHub Actions run `31899143451` completed the standard packaging path on a native `macos-14` arm64 runner:
+
+| Field | Recorded result |
+|---|---|
+| Architecture | arm64 |
+| Scope | Freeze → Verify / Prove → Materialize → Package → DMG |
+| Runtime receipt | PASS; `cacheUsed: false`; `environment.arch: arm64` |
+| Release assets | arm64 DMG, SHA-256 sidecar, and verification receipt uploaded |
+| Result | **PASS** |
+
+This is a native packaging result. It does not claim that an arm64 App was manually launched or that a real arm64 Agent turn was completed.
+
 ### Clean-machine UAT — PASS (x86_64)
 
 On **2026-08-16 Asia/Shanghai**, a second non-developer Intel Mac completed the full black-box path without Terminal or developer intervention:
@@ -60,7 +74,7 @@ No Terminal command, manual Profile edit, lockfile repair, or PATH repair was re
 
 ### Release readiness — Reference / RC, not Stable
 
-`v0.1.0-reference-v10` remains the first public Reference / RC pre-release. It must not be relabeled Stable until native arm64 validation, Developer ID signing, Hardened Runtime, notarization, and stapling are complete.
+`v0.1.0-reference-v10` remains the first public Reference / RC pre-release. Native arm64 packaging is now PASS, but the Release must not be relabeled Stable until arm64 App/Live Agent UAT, Developer ID signing, Hardened Runtime, notarization, and stapling are complete.
 
 x86_64 clean-machine UAT is now **PASS** on a second non-developer Intel Mac. Apple Developer signing/notarization remain **PENDING**.
 
@@ -93,7 +107,8 @@ x86_64 clean-machine UAT is now **PASS** on a second non-developer Intel Mac. Ap
 | Restart succeeded | PASS (single-machine) | v10 was terminated, relaunched, and completed `RESTART_PASS` using the persisted credential |
 | No developer intervention | PASS (x86_64) | Second non-developer Intel Mac completed the full path with zero Terminal or developer steps |
 | x86_64 native Package/App/DMG | PASS (single-machine) | Fresh Freeze/Verify/Package; `hdiutil verify` passed |
-| arm64 native Package/App/DMG | PENDING | Native Apple Silicon runner required; workflow prepared, no local arm64 evidence |
+| arm64 native Freeze/Verify/Package/DMG | PASS (CI) | Run `31899143451`; native `macos-14` runner; receipt `environment.arch: arm64`; assets published |
+| arm64 App launch / official UI / real Agent turn | PENDING | No Apple Silicon machine is available for manual App and live-provider validation |
 | Apple Developer signing/notarization | PENDING / external credential blocked | Only Apple Development identity is present; no Developer ID Application identity or notary credentials |
 
 Any terminal command, manual Profile edit, lockfile repair, PATH repair, or remote developer intervention is a UAT FAIL and must be recorded here with the exact symptom.

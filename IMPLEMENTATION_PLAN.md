@@ -790,6 +790,48 @@ None. The public `v0.1.0-reference-v10` artifact remains a Reference / RC pre-re
 
 Ready for native arm64 runner execution and Developer ID/notarization credential injection. Not ready to create formal Stable `v0.1.0`.
 
+### 2026-08-16 — Release pipeline hang correction and native arm64 packaging
+
+#### 1. Implementation Summary
+
+Resolved the long-running macOS CI failure without changing the PRD product boundary. The failure was not in Package: the official Harness Web process tree survived `Verify` on the arm64 runner, so the CLI printed `PASS` but the Verify command never returned. The materializer now starts the official process in a POSIX process group and terminates the whole group during Verify cleanup. The macOS package fallback now follows the deployed package manifests' dependency, optional-dependency, and peer-dependency graph, copying only missing official workspace packages instead of scanning and copying the entire workspace closure. Release scripts now expose phase timestamps and optional package tracing, and the workflow has a bounded 30-minute job timeout.
+
+#### 2. Files Changed
+
+`packages/core/src/materializer.ts`, `packages/core/src/package-client.ts`, `scripts/build-macos-reference.sh`, `.github/workflows/macos-reference.yml`, `README.md`, `README.zh-CN.md`, `docs/reference-distribution-uat.md`, and this plan.
+
+#### 3. Architecture Decisions
+
+The official Harness remains the only runtime and Web UI. Process-group cleanup changes lifecycle ownership only; it does not replace the Agent Loop or Web server. Package still follows `Freeze → Verify → Materialize → Package`, and the dependency fallback copies only official packages required by the deployed graph. The arm64 Release assets are produced on a native arm64 runner and uploaded from that runner, avoiding a separate local artifact-transfer path.
+
+#### 4. Tests Added
+
+Added package phase tracing, bounded macOS CI execution, native runner package flow, and opt-in direct upload of arm64 DMG/receipt/SHA assets to the existing Reference Release. Existing CLI/package architecture coverage remains in place.
+
+#### 5. Test Results
+
+`pnpm typecheck` passed; `pnpm test` passed with 17/17 tests; shell syntax validation passed. A fresh local x86_64 release run reached `Verify completed`, packaged the App, passed `codesign --verify --deep --strict`, created the DMG, and passed `hdiutil verify`. The local packaged App loaded the official Harness UI and completed `TARGETED_PACKAGE_PASS`. GitHub Actions run `31899143451` completed native arm64 Freeze, Verify, Materialize, Package, DMG creation, artifact upload, and direct upload of the three arm64 Release assets. The published arm64 receipt is Runtime `PASS`, `cacheUsed: false`, `environment.arch: arm64`, with Harness `0.1.0-rc.5` at commit `47f943859bef60e4160492346772ded9b24f765a`.
+
+#### 6. Failure Fixtures Added
+
+The cancelled run `31897333474` remains failure evidence: the arm64 log reached `RESULT / PASS` but never emitted `Verify completed` until cancellation. The earlier broad-closure behavior and the original missing-built-Harness-package failure remain regression evidence. No arm64 Live Agent PASS is fabricated from packaging-only CI.
+
+#### 7. Known Limitations
+
+The arm64 App has been natively built and packaged but not manually launched on an Apple Silicon Mac; arm64 Live Agent E2E and arm64 clean-machine UAT remain pending. Universal binary is not produced. The current Release artifacts are ad-hoc signed. Developer ID Application signing, Hardened Runtime release signing, notarization, and stapling remain blocked by missing external Apple credentials.
+
+#### 8. Security Boundaries
+
+The process-group termination is limited to the official Harness child process group created by the Stack verifier. Package tracing contains phase names and package names only; it never reads or prints secret values. Release upload uses GitHub Actions' scoped token and publishes only App distribution artifacts, SHA-256, and sanitized verification receipts.
+
+#### 9. PRD Deviations
+
+None.
+
+#### 10. Readiness for Next Milestone
+
+Reference / RC packaging is ready for both x86_64 and arm64 assets. Stable `v0.1.0` is not ready until arm64 App/Live Agent UAT, clean-machine coverage for the supported architectures, and Developer ID signing/notarization/stapling are complete.
+
 ## Regression fixture inventory
 
 The fixture names are PRD-required and each must have a test asserting it cannot produce a false PASS:
