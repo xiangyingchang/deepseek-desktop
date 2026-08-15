@@ -15,6 +15,10 @@ SIGNING_IDENTITY="${DSH_STACK_CODESIGN_IDENTITY:-}"
 NODE_RUNTIME="${DSH_STACK_NODE_RUNTIME:-}"
 NOTARY_PROFILE="${DSH_STACK_NOTARY_PROFILE:-}"
 
+phase() {
+  echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $1"
+}
+
 case "$ARCH" in
   x64|arm64) ;;
   *) echo "Unsupported DSH_STACK_ARCH: $ARCH (expected x64 or arm64)" >&2; exit 2 ;;
@@ -46,17 +50,25 @@ fi
 cd "$ROOT_DIR"
 
 FREEZE_ARGS=(pnpm dsh-stack freeze --profile "$PROFILE" --harness "$HARNESS_ROOT" --output "$STACK_DIR")
+phase "Freeze started"
 "${FREEZE_ARGS[@]}"
+phase "Freeze completed"
 
 VERIFY_ARGS=(pnpm dsh-stack verify "$STACK_DIR" --harness "$HARNESS_ROOT")
+phase "Verify started"
 "${VERIFY_ARGS[@]}"
+phase "Verify completed"
 
 PACKAGE_ARGS=(pnpm dsh-stack package "$STACK_DIR" --harness "$HARNESS_ROOT" --arch "$ARCH" --output "$APP_PATH")
 if [[ -n "$NODE_RUNTIME" ]]; then PACKAGE_ARGS+=(--node-runtime "$NODE_RUNTIME"); fi
 if [[ -n "$SIGNING_IDENTITY" ]]; then PACKAGE_ARGS+=(--signing-identity "$SIGNING_IDENTITY" --hardened-runtime); fi
+phase "Package started"
 "${PACKAGE_ARGS[@]}"
+phase "Package completed"
 
+phase "App signature verification started"
 codesign --verify --deep --strict "$APP_PATH"
+phase "App signature verification completed"
 
 STAGING_DIR="$WORK_DIR/dmg"
 mkdir -p "$STAGING_DIR"
@@ -64,6 +76,7 @@ ditto "$APP_PATH" "$STAGING_DIR/$(basename "$APP_PATH")"
 ln -s /Applications "$STAGING_DIR/Applications"
 hdiutil create -volname "DSH Stack Reference $ARCH" -srcfolder "$STAGING_DIR" -ov -format UDZO "$DMG_PATH" >/dev/null
 hdiutil verify "$DMG_PATH" >/dev/null
+phase "DMG created and verified"
 
 cp "$STACK_DIR/verification.receipt.json" "$OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH-verification.receipt.json"
 (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$DMG_PATH")" > "$(basename "$DMG_PATH").sha256")

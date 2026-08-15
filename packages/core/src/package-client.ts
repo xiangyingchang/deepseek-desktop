@@ -44,29 +44,64 @@ async function runDeploy(harnessRoot: string, destination: string): Promise<void
   }))
 }
 
-/** Fill peer/vendor packages omitted by pnpm deploy's production peer closure. */
-async function copyWorkspacePackageClosure(harnessRoot: string, deploymentRoot: string): Promise<string[]> {
-  const sourceScope = join(harnessRoot, 'node_modules', '@deepseek-ai')
-  const destinationScope = join(deploymentRoot, 'node_modules', '@deepseek-ai')
-  await mkdir(destinationScope, { recursive: true })
-  const copied: string[] = []
-  for (const entry of await readdir(sourceScope, { withFileTypes: true })) {
-    const source = join(sourceScope, entry.name)
-    const destination = join(destinationScope, entry.name)
-    if (existsSync(destination)) continue
-    try {
-      await cp(source, destination, {
-        recursive: true,
-        dereference: true,
-        filter: path => !path.split('/').includes('node_modules'),
-      })
-      copied.push(`@deepseek-ai/${entry.name}`)
-    } catch {
-      // A platform-only or broken optional workspace link is not needed unless the official runtime imports it.
-    }
+function packageTrace(message: string): void {
+  if (process.env.DSH_STACK_TRACE === '1') console.error(`[dsh-stack package] ${message}`)
+}
+
+interface PackageManifest {
+  name?: unknown
+  dependencies?: unknown
+  optionalDependencies?: unknown
+  peerDependencies?: unknown
+}
+
+function dependencyNames(manifest: PackageManifest): string[] {
+  const names = new Set<string>()
+  for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies'] as const) {
+    const values = manifest[field]
+    if (values === null || typeof values !== 'object' || Array.isArray(values)) continue
+    for (const name of Object.keys(values as Record<string, unknown>)) names.add(name)
   }
-  const workspaceRoots = ['vendor', 'packages', 'apps', 'native']
-  const packageRoots: Array<{ name: string; root: string }> = []
+  return [...names]
+}
+
+async function readPackageManifest(root: string): Promise<PackageManifest | undefined> {
+  try {
+    return JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as PackageManifest
+  } catch {
+    return undefined
+  }
+}
+
+async function installedPackageRoots(root: string): Promise<string[]> {
+  const output = [root]
+  const nodeModules = join(root, 'node_modules')
+  let entries
+  try {
+    entries = await readdir(nodeModules, { withFileTypes: true })
+  } catch {
+    return output
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory() && !entry.isSymbolicLink()) continue
+    const entryRoot = join(nodeModules, entry.name)
+    if (entry.name.startsWith('@')) {
+      let scopedEntries
+      try {
+        scopedEntries = await readdir(entryRoot, { withFileTypes: true })
+      } catch {
+        continue
+      }
+      for (const scopedEntry of scopedEntries) {
+        if (scopedEntry.isDirectory() || scopedEntry.isSymbolicLink()) output.push(join(entryRoot, scopedEntry.name))
+      }
+    } else output.push(entryRoot)
+  }
+  return output
+}
+
+async function workspacePackageRoots(harnessRoot: string): Promise<Map<string, string>> {
+  const output = new Map<string, string>()
   const collect = async (root: string, depth: number): Promise<void> => {
     if (depth > 4) return
     let entries
@@ -76,30 +111,56 @@ async function copyWorkspacePackageClosure(harnessRoot: string, deploymentRoot: 
       const full = join(root, entry.name)
       if (entry.isDirectory()) await collect(full, depth + 1)
       else if (entry.isFile() && entry.name === 'package.json') {
-        try {
-          const manifest = JSON.parse(await readFile(full, 'utf8')) as { name?: unknown }
-          if (typeof manifest.name === 'string' && manifest.name.startsWith('@deepseek-ai/')) packageRoots.push({ name: manifest.name, root })
-        } catch {
-          // A non-package JSON file does not belong to the runtime closure.
-        }
+        const manifest = await readPackageManifest(root)
+        if (typeof manifest?.name === 'string' && manifest.name.startsWith('@deepseek-ai/')) output.set(manifest.name, root)
       }
     }
   }
-  for (const root of workspaceRoots) await collect(join(harnessRoot, root), 0)
-  for (const packageRoot of packageRoots) {
-    const [scope, name] = packageRoot.name.split('/', 2)
-    if (scope === undefined || name === undefined) continue
-    const destination = join(deploymentRoot, 'node_modules', scope, name)
-    if (existsSync(destination)) continue
-    try {
-      await cp(packageRoot.root, destination, {
+  for (const root of ['vendor', 'packages', 'apps', 'native']) await collect(join(harnessRoot, root), 0)
+  return output
+}
+
+/** Fill only the official workspace packages required by the deployed dependency graph. */
+async function copyWorkspacePackageClosure(harnessRoot: string, deploymentRoot: string): Promise<string[]> {
+  const destinationScope = join(deploymentRoot, 'node_modules', '@deepseek-ai')
+  await mkdir(destinationScope, { recursive: true })
+  const sources = await workspacePackageRoots(harnessRoot)
+  const sourceScope = join(harnessRoot, 'node_modules', '@deepseek-ai')
+  try {
+    for (const entry of await readdir(sourceScope, { withFileTypes: true })) {
+      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue
+      const root = join(sourceScope, entry.name)
+      const manifest = await readPackageManifest(root)
+      if (typeof manifest?.name === 'string' && manifest.name.startsWith('@deepseek-ai/')) sources.set(manifest.name, root)
+    }
+  } catch {
+    // The source checkout may not have root-level workspace links; the workspace map is authoritative.
+  }
+
+  const copied: string[] = []
+  const queue = await installedPackageRoots(deploymentRoot)
+  const visited = new Set<string>()
+  while (queue.length > 0) {
+    const packageRoot = queue.shift()!
+    if (visited.has(packageRoot)) continue
+    visited.add(packageRoot)
+    const manifest = await readPackageManifest(packageRoot)
+    if (manifest === undefined) continue
+    for (const dependency of dependencyNames(manifest)) {
+      if (!dependency.startsWith('@deepseek-ai/')) continue
+      const name = dependency.slice('@deepseek-ai/'.length)
+      const destination = join(destinationScope, name)
+      if (existsSync(destination)) continue
+      const source = sources.get(dependency)
+      if (source === undefined) continue
+      await cp(source, destination, {
         recursive: true,
         dereference: true,
         filter: path => !path.split('/').includes('node_modules'),
       })
-      copied.push(packageRoot.name)
-    } catch {
-      // Optional platform workspaces are allowed to be absent until runtime asks for them.
+      copied.push(dependency)
+      queue.push(destination)
+      packageTrace(`copied workspace dependency ${dependency}`)
     }
   }
   return [...new Set(copied)].sort()
@@ -303,9 +364,14 @@ export async function packageStack(options: {
   const harnessDestination = join(resources, 'harness')
   await mkdir(resources, { recursive: true })
   await mkdir(macos, { recursive: true })
+  packageTrace('deploying official Harness production runtime')
   await runDeploy(installation.root, harnessDestination)
+  packageTrace('resolving missing official workspace dependencies')
   const copiedWorkspacePackages = await copyWorkspacePackageClosure(installation.root, harnessDestination)
+  packageTrace(`workspace dependency closure complete (${copiedWorkspacePackages.length} packages copied)`)
+  packageTrace('embedding Node runtime and dynamic libraries')
   await bundleNodeRuntime(nodeRuntime, join(resources, 'node'), join(resources, 'lib'))
+  packageTrace('copying Stack Profile and receipt')
   await cp(join(options.stackRoot, 'profile'), join(resources, 'profile'), { recursive: true })
   await copyFile(join(ASSET_ROOT, 'reference-client.mjs'), join(resources, 'reference-client.mjs'))
   await copyFile(join(ASSET_ROOT, 'Info.plist'), join(contents, 'Info.plist'))
@@ -313,8 +379,10 @@ export async function packageStack(options: {
   await copyFile(join(options.stackRoot, 'stack.integrity.json'), join(resources, 'stack.integrity.json'))
   await copyFile(join(options.stackRoot, 'verification.receipt.json'), join(resources, 'verification.receipt.json'))
   await writeFile(join(resources, 'client.json'), JSON.stringify({ id: stack.id, profile: stack.harness.profile, secrets: stack.requirements.secrets }, null, 2) + '\n', 'utf8')
+  packageTrace(`compiling ${targetArch} Native Shell`)
   compileNativeShell(join(ASSET_ROOT, 'ReferenceShell.swift'), join(macos, 'dsh-stack-reference'), targetArch)
   await chmod(join(macos, 'dsh-stack-reference'), 0o755)
+  packageTrace('signing App bundle')
   const signing = await signApp(appPath, { identity: options.signingIdentity, hardenedRuntime: options.hardenedRuntime })
   return { appPath, runtimeRoot: harnessDestination, copiedWorkspacePackages, harnessVersion: installation.version, platform: { os: hostPlatform.os, arch: targetArch }, signing }
 }

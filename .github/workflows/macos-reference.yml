@@ -23,6 +23,7 @@ jobs:
             host_arch: arm64
             runner: macos-14
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     steps:
       - name: Checkout DSH Stack
         uses: actions/checkout@v4
@@ -71,6 +72,7 @@ jobs:
           DSH_HOME: ${{ runner.temp }}/dsh-home
           DSH_STACK_ARCH: ${{ matrix.arch }}
           DSH_STACK_OUTPUT_DIR: ${{ github.workspace }}/dist/release/${{ matrix.arch }}
+          DSH_STACK_TRACE: '1'
         run: bash scripts/build-macos-reference.sh
 
       - name: Upload unsigned/ad-hoc validation artifacts
