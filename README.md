@@ -53,6 +53,6 @@ Build the generic macOS Reference Client after the Stack has a Runtime PASS rece
 pnpm dsh-stack package examples/reference --harness ../deepseek-harness
 ```
 
-This produces an ad-hoc signed `.app` containing an embedded Node runtime, the deployed official Harness closure, the frozen Profile, and a thin launcher that opens the official Web UI. Apple Developer signing/notarization and a non-developer real-Agent UAT are still release gates; see [`docs/reference-distribution-uat.md`](docs/reference-distribution-uat.md).
+This produces an ad-hoc signed `.app` containing an embedded Node runtime, the deployed official Harness closure, the frozen Profile, and a generic AppKit/WebKit Native Shell that hosts the official Web UI in its own window. It does not hand the URL to Safari or another default browser. Apple Developer signing/notarization and a non-developer real-Agent UAT are still release gates; see [`docs/reference-distribution-uat.md`](docs/reference-distribution-uat.md).
 
 Runtime verification executes Harness and plugin code from the Stack. The disposable home is for reproducibility isolation, not a security sandbox or malware boundary.

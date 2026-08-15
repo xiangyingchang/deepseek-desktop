@@ -8,8 +8,8 @@
   "verification": {
     "level": "runtime",
     "result": "pass",
-    "startedAt": "2026-08-15T09:54:47.860Z",
-    "finishedAt": "2026-08-15T09:55:02.311Z",
+    "startedAt": "2026-08-15T13:47:57.715Z",
+    "finishedAt": "2026-08-15T13:48:18.863Z",
     "cacheUsed": false
   },
   "environment": {
@@ -41,50 +41,50 @@
     {
       "stage": "STATIC_VERIFY",
       "status": "started",
-      "at": "2026-08-15T09:54:47.861Z"
+      "at": "2026-08-15T13:47:57.716Z"
     },
     {
       "stage": "STATIC_VERIFY",
       "status": "passed",
-      "at": "2026-08-15T09:54:48.569Z"
+      "at": "2026-08-15T13:47:58.904Z"
     },
     {
       "stage": "MATERIALIZE",
       "status": "started",
-      "at": "2026-08-15T09:54:48.569Z"
+      "at": "2026-08-15T13:47:58.904Z"
     },
     {
       "stage": "MATERIALIZE",
       "status": "passed",
-      "at": "2026-08-15T09:54:48.572Z",
+      "at": "2026-08-15T13:47:58.909Z",
       "message": "Profile materialized; no external Profile dependency install was required."
     },
     {
       "stage": "BOOT",
       "status": "started",
-      "at": "2026-08-15T09:54:48.572Z"
+      "at": "2026-08-15T13:47:58.909Z"
     },
     {
       "stage": "BOOT",
       "status": "passed",
-      "at": "2026-08-15T09:55:02.186Z",
-      "message": "Official Harness Web UI responded at http://127.0.0.1:49709."
+      "at": "2026-08-15T13:48:18.696Z",
+      "message": "Official Harness Web UI responded at http://127.0.0.1:51348."
     },
     {
       "stage": "ACTIVATE",
       "status": "passed",
-      "at": "2026-08-15T09:55:02.186Z",
+      "at": "2026-08-15T13:48:18.696Z",
       "message": "The official Web profile reached its serving state."
     },
     {
       "stage": "CORE_TEST",
       "status": "started",
-      "at": "2026-08-15T09:55:02.186Z"
+      "at": "2026-08-15T13:48:18.696Z"
     },
     {
       "stage": "CORE_TEST",
       "status": "passed",
-      "at": "2026-08-15T09:55:02.186Z"
+      "at": "2026-08-15T13:48:18.696Z"
     }
   ],
   "checks": [
@@ -121,7 +121,7 @@
       "type": "runtime.health",
       "stage": "CORE_TEST",
       "result": "pass",
-      "message": "http://127.0.0.1:49709"
+      "message": "http://127.0.0.1:51348"
     },
     {
       "name": "Profile generated root",

@@ -167,6 +167,29 @@ async function signApp(appPath: string): Promise<void> {
   execFileSync('codesign', ['--force', '--deep', '--sign', '-', '--timestamp=none', appPath], { stdio: ['ignore', 'ignore', 'pipe'] })
 }
 
+/** Compile the generic AppKit/WebKit shell that hosts the official Harness UI. */
+function compileNativeShell(source: string, destination: string, arch: string): void {
+  const swiftArch = arch === 'x64' ? 'x86_64' : arch
+  const sdk = execFileSync('xcrun', ['--sdk', 'macosx', '--show-sdk-path'], { encoding: 'utf8' }).trim()
+  try {
+    execFileSync('swiftc', [
+      '-O',
+      '-sdk', sdk,
+      '-target', `${swiftArch}-apple-macos12.0`,
+      '-framework', 'AppKit',
+      '-framework', 'Security',
+      '-framework', 'WebKit',
+      '-o', destination,
+      source,
+    ], { stdio: ['ignore', 'ignore', 'pipe'] })
+  } catch (error) {
+    throw new DshStackError(diagnostic('PACKAGE_BUILD_FAILED', 'MATERIALIZE', `Native macOS shell compilation failed: ${String(error)}`, {
+      component: 'swiftc AppKit/WebKit shell',
+      action: 'Install the macOS Xcode Command Line Tools and retry Package.',
+    }))
+  }
+}
+
 function receiptIsValid(receipt: VerificationReceipt, manifestId: string, integrity: IntegrityManifest): boolean {
   return receipt.schemaVersion === 1
     && receipt.stack.id === manifestId
@@ -185,7 +208,7 @@ export interface PackageResult {
   platform: { os: string; arch: string }
 }
 
-/** Package a verified Stack as a thin macOS shell over the official Harness runtime/UI. */
+/** Package a verified Stack as a macOS Native Shell over the official Harness runtime/UI. */
 export async function packageStack(options: {
   stackRoot: string
   output: string
@@ -239,8 +262,7 @@ export async function packageStack(options: {
   await copyFile(join(options.stackRoot, 'stack.integrity.json'), join(resources, 'stack.integrity.json'))
   await copyFile(join(options.stackRoot, 'verification.receipt.json'), join(resources, 'verification.receipt.json'))
   await writeFile(join(resources, 'client.json'), JSON.stringify({ id: stack.id, profile: stack.harness.profile, secrets: stack.requirements.secrets }, null, 2) + '\n', 'utf8')
-  const launcher = '#!/bin/sh\nset -eu\nCONTENTS=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)\nexec "$CONTENTS/Resources/node" "$CONTENTS/Resources/reference-client.mjs"\n'
-  await writeFile(join(macos, 'dsh-stack-reference'), launcher, { encoding: 'utf8', mode: 0o755 })
+  compileNativeShell(join(ASSET_ROOT, 'ReferenceShell.swift'), join(macos, 'dsh-stack-reference'), platform.arch)
   await chmod(join(macos, 'dsh-stack-reference'), 0o755)
   await signApp(appPath)
   return { appPath, runtimeRoot: harnessDestination, copiedWorkspacePackages, harnessVersion: installation.version, platform }

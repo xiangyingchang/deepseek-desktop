@@ -610,7 +610,7 @@ This track starts only after the core Freeze/Verify/Reproduce chain is real. It 
 1. Add `dsh-stack package <verified-stack>` with a generic runtime bundle path shared by all Stack artifacts.
 2. Require a valid Runtime PASS receipt or run Runtime Verify through the existing pipeline.
 3. Bundle a private Node runtime, exact Harness installation, exact Profile inputs, and the official Web UI; do not depend on system Node, pnpm, DSH CLI, or a user's Profile.
-4. Generate a thin native shell only for lifecycle, secret onboarding, diagnostics, OS integration, and opening the official UI.
+4. Generate a generic AppKit/WebKit Native Shell for lifecycle, secret onboarding, diagnostics, OS integration, and hosting the official UI in its own window; never hand the URL to the default browser.
 5. Keep `DEEPSEEK_API_KEY` and all other secret values outside the artifact and use platform-appropriate secure storage.
 6. Produce a macOS `.app`/`.dmg` only after the platform runtime and signing/notarization strategy are validated; do not claim an installable client from a zip of source files.
 
@@ -626,15 +626,15 @@ This track starts only after the core Freeze/Verify/Reproduce chain is real. It 
 
 #### 1. Implementation Summary
 
-Added generic `dsh-stack package <stack>` support. It validates the current Runtime PASS receipt, deploys the official `@deepseek-ai/dsh` production closure with pnpm, fills missing official workspace/vendor peer packages from the Harness checkout, embeds a self-contained Node runtime and its non-system macOS dylibs, copies the frozen Profile, and creates an ad-hoc signed `.app` with a thin launcher.
+Added generic `dsh-stack package <stack>` support. It validates the current Runtime PASS receipt, deploys the official `@deepseek-ai/dsh` production closure with pnpm, fills missing official workspace/vendor peer packages from the Harness checkout, embeds a self-contained Node runtime and its non-system macOS dylibs, copies the frozen Profile, and creates an ad-hoc signed `.app` with a compiled AppKit/WebKit Native Shell.
 
 #### 2. Files Changed
 
-`packages/core/src/package-client.ts`, `packages/core/assets/reference-client.mjs`, `packages/core/assets/Info.plist`, CLI package dispatch, CI workflow, README, and `docs/reference-distribution-uat.md`.
+`packages/core/src/package-client.ts`, `packages/core/assets/ReferenceShell.swift`, `packages/core/assets/reference-client.mjs`, `packages/core/assets/Info.plist`, `packages/core/tests/reference-client.test.ts`, CLI package dispatch, CI workflow, README, and `docs/reference-distribution-uat.md`.
 
 #### 3. Architecture Decisions
 
-The client owns only lifecycle, Keychain/API-key onboarding, private DSH home, and opening the URL. The official Harness `lib/bin.js` and official Web UI remain the runtime. Package is generic over Stack metadata; there is no Reference-only hardcoded Profile or Agent path.
+The client owns only the Native Shell window, lifecycle, Keychain/API-key onboarding, private DSH home, and runtime bootstrap. WKWebView loads the URL emitted by the packaged runtime bootstrap; the official Harness `lib/bin.js` and official Web UI remain the runtime. Package is generic over Stack metadata; there is no Reference-only hardcoded Profile or Agent path.
 
 #### 4. Tests Added
 
@@ -642,7 +642,7 @@ Package closure smoke iterations, macOS dynamic-library closure checks, ad-hoc s
 
 #### 5. Test Results
 
-The final generated client is `dist/reference-client/DSH Stack Reference v6.app` (479 MB), has a valid ad-hoc signature, shows no `/usr/local` dynamic-library references, and served the official Harness HTML in a process launched with `PATH=/usr/bin:/bin` and no system Node/pnpm/DSH CLI. The embedded client stopped cleanly after SIGINT. The real integration command also passed against the source checkout and reproduced the same Stack integrity hash.
+The corrected generated client is `dist/reference-client/DSH Stack Reference v8.app` (ad-hoc signed, x86_64). Its main executable is Mach-O rather than a shell script. With `PATH=/usr/bin:/bin`, no system Node/pnpm/DSH CLI, and a test-only key, it opened a real `DSH Stack Reference — DeepSeek Harness` Native Shell window containing the official Harness UI; no external browser handoff occurred. The embedded client stopped cleanly, and the Runtime PASS receipt/integrity hash remained unchanged.
 
 #### 6. Failure Fixtures Added
 
@@ -658,11 +658,11 @@ Secret values are not copied into the Stack or `.app`; the shell reads the requi
 
 #### 9. PRD Deviations
 
-None.
+The initial v6 Reference Client handed the local URL to the default browser, which was a PRD deviation. v8 corrects this with the generic AppKit/WebKit Native Shell; the current implementation has no remaining deviation in this area.
 
 #### 10. Readiness for Next Milestone
 
-The engineering Reference Client path is runnable. Product E2E completion still requires the manual UAT in `docs/reference-distribution-uat.md`, a real API key, a separate clean Mac, and the PRD's STOP AND REVIEW/GO decision.
+The corrected Native Shell Reference Client path is runnable. Product E2E completion still requires the manual UAT in `docs/reference-distribution-uat.md`, a real API key, a separate clean Mac, and the PRD's STOP AND REVIEW/GO decision.
 
 ## Regression fixture inventory
 

@@ -1,10 +1,9 @@
-import { execFileSync, spawn } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
-import { cp, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import readline from 'node:readline/promises'
 
 const resources = dirname(fileURLToPath(import.meta.url))
 const metadata = JSON.parse(await readFile(join(resources, 'client.json'), 'utf8'))
@@ -13,43 +12,6 @@ const profileDestination = join(appData, 'profiles', metadata.profile)
 const sourceProfile = join(resources, 'profile')
 await mkdir(join(appData, 'profiles'), { recursive: true })
 if (!existsSync(join(profileDestination, 'package.json'))) await cp(sourceProfile, profileDestination, { recursive: true })
-
-function keychainRead(service) {
-  try {
-    return execFileSync('security', ['find-generic-password', '-s', service, '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
-  } catch {
-    return ''
-  }
-}
-
-function keychainWrite(service, value) {
-  execFileSync('security', ['add-generic-password', '-U', '-a', process.env.USER ?? 'user', '-s', service, '-w', value], { stdio: ['ignore', 'ignore', 'pipe'] })
-}
-
-async function askForSecret(name) {
-  const service = `dsh-stack:${metadata.id}:${name}`
-  const fromEnvironment = process.env[name]
-  if (fromEnvironment) return fromEnvironment
-  const fromKeychain = keychainRead(service)
-  if (fromKeychain) return fromKeychain
-  let value = ''
-  if (process.stdin.isTTY) {
-    const prompt = readline.createInterface({ input: process.stdin, output: process.stdout })
-    value = (await prompt.question(`Enter ${name}: `)).trim()
-    prompt.close()
-  } else if (process.platform === 'darwin') {
-    try {
-      const script = `display dialog "Configure ${name} for DSH Stack" default answer "" with hidden answer buttons {"Cancel", "Save"} default button "Save"`
-      const response = execFileSync('osascript', ['-e', script], { encoding: 'utf8' })
-      value = response.match(/text returned:(.*)/u)?.[1]?.trim() ?? ''
-    } catch {
-      value = ''
-    }
-  }
-  if (!value) throw new Error(`${name} is required; configure it in the Reference Client prompt or Keychain`)
-  keychainWrite(service, value)
-  return value
-}
 
 async function availablePort() {
   const server = createServer()
@@ -78,7 +40,11 @@ async function waitForWeb(url, child) {
 }
 
 const secrets = {}
-for (const name of metadata.secrets) secrets[name] = await askForSecret(name)
+for (const name of metadata.secrets) {
+  const value = process.env[name]
+  if (!value) throw new Error(`${name} is required; configure it in the Reference Client prompt or Keychain`)
+  secrets[name] = value
+}
 const port = await availablePort()
 const nodePath = join(resources, 'node')
 const harnessBin = join(resources, 'harness', 'lib', 'bin.js')
@@ -92,8 +58,7 @@ child.stdout.on('data', chunk => process.stderr.write(String(chunk).replace(/sk-
 child.stderr.on('data', chunk => process.stderr.write(String(chunk).replace(/sk-[A-Za-z0-9_-]{8,}/gu, '[REDACTED]')))
 try {
   await waitForWeb(url, child)
-  execFileSync('open', [url], { stdio: 'ignore' })
-  console.log(`Official DeepSeek Harness Web UI: ${url}`)
+  console.log(`DSH_STACK_READY ${url}`)
   await new Promise(resolve => {
     const stop = () => { child.kill('SIGTERM'); resolve() }
     process.once('SIGINT', stop)
