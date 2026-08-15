@@ -15,7 +15,7 @@ DSH Stack 是 DeepSeek Harness 的**可复现分发层**。它让一套已经能
 
 ## 当前状态
 
-`v0.1.0-reference-v10` 是**公开参考版本 / RC 预发布**，不是稳定版。正式 `v0.1.0` 标签需要等待 arm64 原生验证、非开发者 UAT 以及 Apple Developer ID 签名公证完成。
+`v0.1.0-reference-v10` 是**公开参考版本 / RC 预发布**，不是稳定版。正式 `v0.1.0` 标签需要等待 arm64 原生验证和 Apple Developer ID 签名公证完成。x86_64 非开发者 UAT 已 **PASS**。
 
 产品需求文档：[PRD.md](PRD.md)  
 实现计划：[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
@@ -44,20 +44,30 @@ x86_64 打包验证于 2026-08-16 在 Intel 开发 Mac 上完成，覆盖了完�
 - 全新生成的 x86_64 发布 App 返回 `RELEASE_X64_PASS`
 - 三次成功会话的元数据均记录 `turn/end: completed`
 
-### 非开发者 UAT — PENDING
+### 非开发者 UAT — PASS（x86_64）
 
-尚未在第二台非开发者 Mac 上完成「下载 → 安装 → 打开 → 配置密钥 → 真实 Agent 会话」的完整路径，无需终端或开发者干预。这是明确的发布门槛。
+2026-08-16 在第二台非开发者 Intel Mac 上完成了完整的黑盒验证路径，无需终端或开发者干预：
+
+- 从 Release 下载对应架构的 `.dmg`，打开后将 `.app` 拖入 `/Applications`
+- 该机器未安装 Node、pnpm 或 DSH CLI
+- 双击启动应用，官方 Harness Web UI 在 Native Shell 窗口内打开（未跳转浏览器）
+- 官方 Models 编辑器可编辑，API Key 通过手动输入并保存
+- `⌘V` / `Edit → Paste` 粘贴也验证通过
+- 完成一次真实 Agent 对话
+- 退出并重新启动，凭据持久保留，已保存模型加载正常，再次完成真实 Agent 对话
+
+全程无需终端命令、手动 Profile 编辑、lockfile 修复或 PATH 修复。
 
 ### 发布就绪度 — RC / 非稳定版
 
 | 项目 | 状态 |
 |---|---|
 | x86_64 打包 & Agent E2E | ✅ PASS |
+| x86_64 非开发者 UAT | ✅ PASS |
 | arm64 原生构建 | ⏳ 构建路径已准备，无 Apple Silicon 实机验证 |
 | Universal Binary | ❌ 未生产，采用分架构独立产出 |
 | Apple Developer ID 签名 | ⏳ 仅 Apple Development 身份，无 Developer ID Application 身份 |
 | Hardened Runtime + 公证 | ⏳ 外部凭据阻塞 |
-| 非开发者 UAT | ⏳ 待完成 |
 
 ## 开发
 

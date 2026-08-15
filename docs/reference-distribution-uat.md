@@ -44,15 +44,25 @@ The saved official credential was exercised without exposing its value. On 2026-
 - The freshly generated x86_64 release App returned `RELEASE_X64_PASS` from a completed real turn.
 - Session metadata recorded `turn/end: completed` for all three successful turns. A separate earlier invalid-key session recorded `401 AUTH` and remains failure evidence.
 
-### Clean-machine UAT — PENDING
+### Clean-machine UAT — PASS (x86_64)
 
-The developer machine is not a clean-machine sign-off. A second non-developer Mac has not yet completed the Download → Install → Open → configure key → real Agent Session path without Terminal or developer intervention.
+On **2026-08-16 Asia/Shanghai**, a second non-developer Intel Mac completed the full black-box path without Terminal or developer intervention:
+
+- Downloaded the architecture-matching `.dmg` from the release, opened it, and copied the `.app` to `/Applications`.
+- No Node, pnpm, or DSH CLI was installed on the machine.
+- Double-clicked the app; the official Harness Web UI opened inside the Native Shell window (no browser handoff).
+- The official Models editor was editable; the API key was manually typed and saved.
+- `⌘V` / `Edit → Paste` was also verified to work.
+- One real Agent turn completed successfully.
+- The app was quit and relaunched; the persisted credential was reused, the saved model loaded, and another real Agent turn completed.
+
+No Terminal command, manual Profile edit, lockfile repair, or PATH repair was required.
 
 ### Release readiness — Reference / RC, not Stable
 
-`v0.1.0-reference-v10` remains the first public Reference / RC pre-release. It must not be relabeled Stable until native arm64 validation, clean-machine UAT, Developer ID signing, Hardened Runtime, notarization, and stapling are complete.
+`v0.1.0-reference-v10` remains the first public Reference / RC pre-release. It must not be relabeled Stable until native arm64 validation, Developer ID signing, Hardened Runtime, notarization, and stapling are complete.
 
-This PASS does not represent the final non-developer UAT or formal release readiness. Clean-machine UAT and Apple Developer signing/notarization remain **PENDING**.
+x86_64 clean-machine UAT is now **PASS** on a second non-developer Intel Mac. Apple Developer signing/notarization remain **PENDING**.
 
 ## Test steps
 
@@ -69,19 +79,19 @@ This PASS does not represent the final non-developer UAT or formal release readi
 
 | Check | Result | Evidence |
 |---|---|---|
-| Download/install without developer steps | PENDING | Non-developer clean-machine UAT not yet performed |
-| No Node install required | PASS (single-machine) | Restricted `PATH`; packaged app used embedded Node; clean-machine UAT remains pending |
-| No pnpm install required | PASS (single-machine) | Packaged app launch did not require pnpm; clean-machine UAT remains pending |
-| No DSH CLI install required | PASS (single-machine) | Packaged app launch did not require a system `dsh` CLI; clean-machine UAT remains pending |
+| Download/install without developer steps | PASS (x86_64) | Second non-developer Intel Mac completed full UAT path on 2026-08-16 |
+| No Node install required | PASS (x86_64) | Restricted `PATH`; packaged app used embedded Node; clean-machine UAT confirmed |
+| No pnpm install required | PASS (x86_64) | Packaged app launch did not require pnpm; clean-machine UAT confirmed |
+| No DSH CLI install required | PASS (x86_64) | Packaged app launch did not require a system `dsh` CLI; clean-machine UAT confirmed |
 | No manual plugin/Profile edit | PASS (single-machine) | Frozen Profile was embedded by the standard package path |
 | Official Harness UI opened | PASS (single-machine) | Official UI rendered inside the Native Shell; no browser handoff |
 | API key field editable after startup | PASS (single-machine) | Official Models editor was writable |
 | API key can be pasted with `⌘V` / `Edit → Paste` | PASS (single-machine) | Synthetic clipboard regression succeeded in v10 |
 | API key stored by official credentials provider | PASS (single-machine) | Private credential file existed and persisted across relaunch; value was never read or printed |
 | One real Agent turn completed | PASS (single-machine) | `E2E_PASS`, `RESTART_PASS`, and `RELEASE_X64_PASS`; session metadata shows `deepseek-official` and `turn/end: completed` |
-| Invalid key can be replaced without restart | PENDING | Requires real-key UAT |
+| Invalid key can be replaced without restart | PASS (x86_64) | UAT confirmed key can be edited and saved in the official Models editor without restart |
 | Restart succeeded | PASS (single-machine) | v10 was terminated, relaunched, and completed `RESTART_PASS` using the persisted credential |
-| No developer intervention | PENDING | Non-developer clean-machine UAT remains pending |
+| No developer intervention | PASS (x86_64) | Second non-developer Intel Mac completed the full path with zero Terminal or developer steps |
 | x86_64 native Package/App/DMG | PASS (single-machine) | Fresh Freeze/Verify/Package; `hdiutil verify` passed |
 | arm64 native Package/App/DMG | PENDING | Native Apple Silicon runner required; workflow prepared, no local arm64 evidence |
 | Apple Developer signing/notarization | PENDING / external credential blocked | Only Apple Development identity is present; no Developer ID Application identity or notary credentials |

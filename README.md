@@ -14,7 +14,7 @@ inspect → preflight → freeze → verify → run --clean
 
 The core reproducibility path is implemented and has a real x86_64 single-machine proof. The authoritative product requirements are in [`PRD.md`](PRD.md), and the executable mapping is in [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
-The public `v0.1.0-reference-v10` release is a **Reference / RC pre-release**, not Stable. The formal `v0.1.0` tag must wait for native arm64 validation, clean-machine UAT, and Developer ID signing/notarization.
+The public `v0.1.0-reference-v10` release is a **Reference / RC pre-release**, not Stable. The formal `v0.1.0` tag must wait for native arm64 validation and Developer ID signing/notarization. x86_64 clean-machine UAT is now **PASS**.
 
 ## Validation status
 
@@ -44,15 +44,15 @@ On **2026-08-16 Asia/Shanghai**, the current v10 Native Shell and the freshly ge
 - The fresh x86_64 release App returned `RELEASE_X64_PASS` with another completed turn.
 - An earlier invalid-key session remains recorded as `401 AUTH` failure evidence; it is not counted as PASS.
 
-### Clean-machine UAT — PENDING
+### Clean-machine UAT — PASS (x86_64)
 
-No second, non-developer Mac has completed Download → Install → Open → configure a real key → real Agent Session without Terminal or developer intervention. This remains an explicit release gate.
+On **2026-08-16 Asia/Shanghai**, a second non-developer Intel Mac completed the full black-box path without Terminal or developer intervention. The app was downloaded from the release, installed, configured with a real API key (manually typed; `⌘V` paste also verified), completed a real Agent turn, and survived a quit-and-relaunch cycle with persisted credentials. No Node, pnpm, DSH CLI, or Terminal was needed.
 
 ### Release readiness — RC / NOT STABLE
 
 - `v0.1.0-reference-v10`: public Reference / RC pre-release; preserved as the first public validation release.
-- x86_64: local Packaging E2E and Live Agent E2E PASS; current artifact is ad-hoc signed.
-- arm64: build path and native-runner workflow are prepared, but no native Apple Silicon build/Verify/Package/App/Agent evidence exists on this Intel machine; no arm64 asset is claimed.
+- x86_64: local Packaging E2E, Live Agent E2E, and clean-machine UAT all PASS; current artifact is ad-hoc signed.
+- arm64: build path and native-runner workflow are prepared, but no native Apple Silicon build/Verify/Package/App/Agent evidence exists; no arm64 asset is claimed.
 - Universal: not produced; separate architecture assets are used instead.
 - Apple Developer signing, Hardened Runtime with a Developer ID identity, notarization, and stapling: PENDING / external credential blocked. The machine has an Apple Development identity only, not a Developer ID Application identity.
 - Formal Stable `v0.1.0`: not created and not recommended yet.
@@ -98,7 +98,7 @@ Build the generic macOS Reference Client after the Stack has a Runtime PASS rece
 pnpm dsh-stack package examples/reference --harness ../deepseek-harness
 ```
 
-This produces an ad-hoc signed `.app` containing an embedded Node runtime, the deployed official Harness closure, the frozen Profile, and a generic AppKit/WebKit Native Shell that hosts the official Web UI in its own window. It does not hand the URL to Safari or another default browser, and it does not inject API keys into the Harness environment: the official credentials provider owns the editable credential store. Apple Developer signing/notarization and a non-developer real-Agent UAT are still release gates; see [`docs/reference-distribution-uat.md`](docs/reference-distribution-uat.md).
+This produces an ad-hoc signed `.app` containing an embedded Node runtime, the deployed official Harness closure, the frozen Profile, and a generic AppKit/WebKit Native Shell that hosts the official Web UI in its own window. It does not hand the URL to Safari or another default browser, and it does not inject API keys into the Harness environment: the official credentials provider owns the editable credential store. Apple Developer signing/notarization remain the primary release gate; see [`docs/reference-distribution-uat.md`](docs/reference-distribution-uat.md).
 
 Runtime verification executes Harness and plugin code from the Stack. The disposable home is for reproducibility isolation, not a security sandbox or malware boundary.
  [中文版](README.zh-CN.md) | English
