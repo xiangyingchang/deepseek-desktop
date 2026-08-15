@@ -30,3 +30,19 @@ test('unknown flags and live verification are explicit', () => {
   assert.equal(args.live, true)
   assert.equal(args.json, true)
 })
+
+test('package accepts an explicit native architecture and runtime controls', () => {
+  const args = parseArgs(['package', 'reference', '--arch', 'arm64', '--node-runtime', '/tmp/node-arm64', '--signing-identity', 'Developer ID Application: Example', '--hardened-runtime'])
+  assert.notEqual(args, 'help')
+  assert.notEqual(args, 'version')
+  if (args === 'help' || args === 'version') return
+  assert.equal(args.command, 'package')
+  assert.equal(args.arch, 'arm64')
+  assert.equal(args.nodeRuntime, '/tmp/node-arm64')
+  assert.equal(args.signingIdentity, 'Developer ID Application: Example')
+  assert.equal(args.hardenedRuntime, true)
+})
+
+test('package rejects unknown architectures', () => {
+  assert.throws(() => parseArgs(['package', 'reference', '--arch', 'universal']), /Invalid macOS architecture/)
+})

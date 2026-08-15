@@ -1,0 +1,70 @@
+name: macOS Reference Builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build macOS ${{ matrix.arch }} Reference Client
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            host_arch: x86_64
+            runner: macos-13
+          - arch: arm64
+            host_arch: arm64
+            runner: macos-14
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout DSH Stack
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned official Harness
+        uses: actions/checkout@v4
+        with:
+          repository: deepseek-ai/deepseek-harness
+          ref: 47f943859bef60e4160492346772ded9b24f765a
+          path: deepseek-harness
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.5.0
+          cache: pnpm
+
+      - name: Assert native runner architecture
+        run: |
+          test "$(node -p 'process.arch')" = "${{ matrix.arch }}"
+          test "$(uname -m)" = "${{ matrix.host_arch }}"
+
+      - name: Install DSH Stack dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install official Harness dependencies
+        working-directory: deepseek-harness
+        run: pnpm install --frozen-lockfile
+
+      - name: Freeze → Verify → Materialize → Package
+        env:
+          DSH_HARNESS_ROOT: ${{ github.workspace }}/deepseek-harness
+          DSH_STACK_ARCH: ${{ matrix.arch }}
+          DSH_STACK_OUTPUT_DIR: ${{ github.workspace }}/dist/release/${{ matrix.arch }}
+        run: bash scripts/build-macos-reference.sh
+
+      - name: Upload unsigned/ad-hoc validation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-stack-reference-macos-${{ matrix.arch }}
+          path: dist/release/${{ matrix.arch }}
+          if-no-files-found: error

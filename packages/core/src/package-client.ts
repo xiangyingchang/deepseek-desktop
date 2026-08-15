@@ -13,6 +13,14 @@ import {
 } from './index.ts'
 import { SourceHarnessAdapter, currentPlatform } from './source-adapter.ts'
 import { verifyIntegrity } from './integrity.ts'
+import { absolutePath } from './paths.ts'
+
+export type MacArchitecture = 'x64' | 'arm64'
+
+function binaryArchitectures(path: string): string[] {
+  const output = execFileSync('lipo', ['-archs', path], { encoding: 'utf8' }).trim()
+  return output.split(/\s+/u).filter(Boolean).map(value => value === 'x86_64' ? 'x64' : value)
+}
 
 const ASSET_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets')
 
@@ -163,8 +171,20 @@ async function bundleNodeRuntime(sourceNode: string, destinationNode: string, de
   }
 }
 
-async function signApp(appPath: string): Promise<void> {
-  execFileSync('codesign', ['--force', '--deep', '--sign', '-', '--timestamp=none', appPath], { stdio: ['ignore', 'ignore', 'pipe'] })
+interface SigningResult {
+  mode: 'adhoc' | 'identity'
+  identity: string
+  hardenedRuntime: boolean
+}
+
+async function signApp(appPath: string, options: { identity?: string; hardenedRuntime?: boolean } = {}): Promise<SigningResult> {
+  const identity = options.identity ?? process.env.DSH_STACK_CODESIGN_IDENTITY ?? '-'
+  const hardenedRuntime = options.hardenedRuntime ?? identity !== '-'
+  const args = ['--force', '--deep', '--sign', identity]
+  if (hardenedRuntime) args.push('--options', 'runtime')
+  args.push(identity === '-' ? '--timestamp=none' : '--timestamp', appPath)
+  execFileSync('codesign', args, { stdio: ['ignore', 'ignore', 'pipe'] })
+  return { mode: identity === '-' ? 'adhoc' : 'identity', identity, hardenedRuntime }
 }
 
 /** Compile the generic AppKit/WebKit shell that hosts the official Harness UI. */
@@ -206,6 +226,7 @@ export interface PackageResult {
   copiedWorkspacePackages: string[]
   harnessVersion: string
   platform: { os: string; arch: string }
+  signing: SigningResult
 }
 
 /** Package a verified Stack as a macOS Native Shell over the official Harness runtime/UI. */
@@ -215,6 +236,10 @@ export async function packageStack(options: {
   harnessRoot?: string
   dshHome?: string
   cwd?: string
+  arch?: MacArchitecture
+  nodeRuntime?: string
+  signingIdentity?: string
+  hardenedRuntime?: boolean
 }): Promise<PackageResult> {
   const stack = await readStackManifest(options.stackRoot)
   const integrity = await verifyIntegrity(options.stackRoot)
@@ -238,10 +263,36 @@ export async function packageStack(options: {
   if (installation.version !== stack.harness.version) throw new DshStackError(diagnostic('HARNESS_VERSION_MISMATCH', 'STATIC_VERIFY', `Stack requires Harness ${stack.harness.version}, found ${installation.version}`, {
     action: 'Use the exact Harness version named by the receipt and Stack.',
   }))
-  const platform = currentPlatform()
-  if (platform.os !== 'darwin' || !['x64', 'arm64'].includes(platform.arch)) throw new DshStackError(diagnostic('UNSUPPORTED_PLATFORM', 'MATERIALIZE', `macOS Reference Client is not supported on ${platform.os} ${platform.arch}`, {
+  const hostPlatform = currentPlatform()
+  const targetArch = options.arch ?? hostPlatform.arch
+  if (hostPlatform.os !== 'darwin' || !['x64', 'arm64'].includes(hostPlatform.arch) || !['x64', 'arm64'].includes(targetArch)) throw new DshStackError(diagnostic('UNSUPPORTED_PLATFORM', 'MATERIALIZE', `macOS Reference Client is not supported on ${hostPlatform.os} ${hostPlatform.arch} → ${targetArch}`, {
     action: 'Package on macOS x64 or arm64.',
   }), 2)
+  if (!stack.environment.platform.arch.includes(targetArch)) throw new DshStackError(diagnostic('UNSUPPORTED_PLATFORM', 'STATIC_VERIFY', `Stack does not declare target macOS ${targetArch}; it declares ${stack.environment.platform.arch.join(', ')}`, {
+    action: `Run Freeze and Runtime Verify on a native ${targetArch} environment before packaging that architecture.`,
+  }), 2)
+  const nodeRuntime = absolutePath(options.nodeRuntime ?? process.execPath, options.cwd ?? process.cwd())
+  if (hostPlatform.arch !== targetArch && options.nodeRuntime === undefined) throw new DshStackError(diagnostic('PACKAGE_BUILD_FAILED', 'MATERIALIZE', `Cross-architecture package requires an explicit ${targetArch} Node runtime`, {
+    component: 'embedded Node runtime',
+    action: `Pass --node-runtime <${targetArch} Node executable> or run Package on a native ${targetArch} host.`,
+  }))
+  if (!existsSync(nodeRuntime)) throw new DshStackError(diagnostic('PACKAGE_BUILD_FAILED', 'MATERIALIZE', `Node runtime does not exist: ${nodeRuntime}`, {
+    component: 'embedded Node runtime',
+    action: 'Pass a native Node executable matching the requested architecture.',
+  }))
+  let runtimeArchitectures: string[]
+  try {
+    runtimeArchitectures = binaryArchitectures(nodeRuntime)
+  } catch (error) {
+    throw new DshStackError(diagnostic('PACKAGE_BUILD_FAILED', 'MATERIALIZE', `Unable to inspect Node runtime architecture: ${String(error)}`, {
+      component: 'lipo -archs',
+      action: 'Pass a macOS Node executable or build on the target architecture.',
+    }))
+  }
+  if (!runtimeArchitectures.includes(targetArch)) throw new DshStackError(diagnostic('PACKAGE_BUILD_FAILED', 'MATERIALIZE', `Node runtime does not contain target architecture ${targetArch}: ${runtimeArchitectures.join(', ')}`, {
+    component: nodeRuntime,
+    action: 'Pass a matching native Node runtime.',
+  }))
   if (existsSync(options.output)) throw new DshStackError(diagnostic('INVALID_ARGUMENT', 'MATERIALIZE', `Package output already exists: ${options.output}`, {
     action: 'Choose a new output path; packaging never overwrites an existing client.',
   }), 3)
@@ -254,7 +305,7 @@ export async function packageStack(options: {
   await mkdir(macos, { recursive: true })
   await runDeploy(installation.root, harnessDestination)
   const copiedWorkspacePackages = await copyWorkspacePackageClosure(installation.root, harnessDestination)
-  await bundleNodeRuntime(process.execPath, join(resources, 'node'), join(resources, 'lib'))
+  await bundleNodeRuntime(nodeRuntime, join(resources, 'node'), join(resources, 'lib'))
   await cp(join(options.stackRoot, 'profile'), join(resources, 'profile'), { recursive: true })
   await copyFile(join(ASSET_ROOT, 'reference-client.mjs'), join(resources, 'reference-client.mjs'))
   await copyFile(join(ASSET_ROOT, 'Info.plist'), join(contents, 'Info.plist'))
@@ -262,8 +313,8 @@ export async function packageStack(options: {
   await copyFile(join(options.stackRoot, 'stack.integrity.json'), join(resources, 'stack.integrity.json'))
   await copyFile(join(options.stackRoot, 'verification.receipt.json'), join(resources, 'verification.receipt.json'))
   await writeFile(join(resources, 'client.json'), JSON.stringify({ id: stack.id, profile: stack.harness.profile, secrets: stack.requirements.secrets }, null, 2) + '\n', 'utf8')
-  compileNativeShell(join(ASSET_ROOT, 'ReferenceShell.swift'), join(macos, 'dsh-stack-reference'), platform.arch)
+  compileNativeShell(join(ASSET_ROOT, 'ReferenceShell.swift'), join(macos, 'dsh-stack-reference'), targetArch)
   await chmod(join(macos, 'dsh-stack-reference'), 0o755)
-  await signApp(appPath)
-  return { appPath, runtimeRoot: harnessDestination, copiedWorkspacePackages, harnessVersion: installation.version, platform }
+  const signing = await signApp(appPath, { identity: options.signingIdentity, hardenedRuntime: options.hardenedRuntime })
+  return { appPath, runtimeRoot: harnessDestination, copiedWorkspacePackages, harnessVersion: installation.version, platform: { os: hostPlatform.os, arch: targetArch }, signing }
 }

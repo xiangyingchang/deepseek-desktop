@@ -748,6 +748,48 @@ None. The missing Edit menu was an implementation defect in the Native Shell and
 
 Ready for manual UAT on v10: paste a real key, save it, complete one real Agent turn, replace an invalid key without restart, and verify restart persistence.
 
+### 2026-08-16 — Reference RC closure and macOS release engineering
+
+#### 1. Implementation Summary
+
+Closed the x86_64 single-machine Reference RC loop with real credential-backed Agent turns and restart persistence, while keeping the public `v0.1.0-reference-v10` release explicitly Reference / RC rather than Stable. Added architecture-aware Package controls, a standard macOS DMG release script, optional Developer ID/Hardened Runtime/notarization hooks, and a native x64/arm64 GitHub Actions build matrix. The package script still executes Freeze → Verify → Materialize → Package; it does not create an architecture-specific client shortcut or a second Harness path.
+
+#### 2. Files Changed
+
+`packages/core/src/package-client.ts`, `packages/cli/src/main.ts`, `packages/cli/tests/cli.test.ts`, `scripts/build-macos-reference.sh`, `.github/workflows/macos-reference.yml`, `README.md`, `docs/reference-distribution-uat.md`, and this plan.
+
+#### 3. Architecture Decisions
+
+Package target architecture is explicit (`x64` or `arm64`) and must be declared by the verified Stack. A cross-architecture package requires an explicit matching Node runtime; native runners use the host runtime. Separate x86_64 and arm64 artifacts are preferred over an unverified Universal binary. Signing identity and notary profile are external inputs; absent credentials produce a visible ad-hoc/PENDING result, never a false formal-release PASS.
+
+#### 4. Tests Added
+
+Added CLI parser coverage for target architecture, explicit Node runtime, signing identity, Hardened Runtime, and invalid architecture rejection. Added shell syntax validation for the DMG/release script.
+
+#### 5. Test Results
+
+`pnpm typecheck` passed; `pnpm test` passed with 17/17 tests. The new x86_64 release script performed Freeze, Runtime Verify PASS, Package, App launch, official Harness UI load, real Agent turn, DMG creation, and `hdiutil verify` successfully on 2026-08-16 Asia/Shanghai. After v10 termination/relaunch, a real `RESTART_PASS` turn completed. The fresh x86_64 DMG SHA-256 is recorded in its generated sidecar.
+
+#### 6. Failure Fixtures Added
+
+The earlier invalid-key session with `401 AUTH` remains explicit failure evidence. No arm64 PASS fixture was created; missing native arm64 execution remains a real pending state.
+
+#### 7. Known Limitations
+
+The current machine is Intel x86_64, so native arm64 Freeze/Verify/Package/App/Agent evidence cannot be produced locally. The current signing identity is Apple Development, not Developer ID Application. No clean non-developer Mac has been tested. Invalid-key replacement without restart remains unverified.
+
+#### 8. Security Boundaries
+
+The release script never reads or prints credential values. The official credentials provider remains the owner of the private credential document. Notary credentials are referenced by an external keychain profile only and are never committed or placed in Release assets.
+
+#### 9. PRD Deviations
+
+None. The public `v0.1.0-reference-v10` artifact remains a Reference / RC pre-release because the PRD's clean-machine and formal distribution gates are not yet satisfied.
+
+#### 10. Readiness for Next Milestone
+
+Ready for native arm64 runner execution and Developer ID/notarization credential injection. Not ready to create formal Stable `v0.1.0`.
+
 ## Regression fixture inventory
 
 The fixture names are PRD-required and each must have a test asserting it cannot produce a false PASS:

@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Build one architecture through the product pipeline:
+# Freeze -> Verify / Prove -> Reproduce -> Package -> DMG.
+# The script never turns a missing signing or notarization credential into a
+# PASS; it leaves the artifact ad-hoc and prints the missing release gate.
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PROFILE="${DSH_STACK_PROFILE:-web}"
+HARNESS_ROOT="${DSH_HARNESS_ROOT:-$ROOT_DIR/../deepseek-harness}"
+ARCH="${DSH_STACK_ARCH:-$(node -p 'process.arch')}"
+OUTPUT_DIR="${DSH_STACK_OUTPUT_DIR:-$ROOT_DIR/dist/release/$ARCH}"
+SIGNING_IDENTITY="${DSH_STACK_CODESIGN_IDENTITY:-}"
+NODE_RUNTIME="${DSH_STACK_NODE_RUNTIME:-}"
+NOTARY_PROFILE="${DSH_STACK_NOTARY_PROFILE:-}"
+
+case "$ARCH" in
+  x64|arm64) ;;
+  *) echo "Unsupported DSH_STACK_ARCH: $ARCH (expected x64 or arm64)" >&2; exit 2 ;;
+esac
+
+if [[ ! -d "$HARNESS_ROOT" ]]; then
+  echo "DeepSeek Harness checkout not found: $HARNESS_ROOT" >&2
+  exit 2
+fi
+
+HOST_ARCH="$(node -p 'process.arch')"
+if [[ "$HOST_ARCH" != "$ARCH" && -z "$NODE_RUNTIME" ]]; then
+  echo "Cross-architecture build requires DSH_STACK_NODE_RUNTIME for $ARCH; native host is $HOST_ARCH." >&2
+  exit 2
+fi
+
+mkdir -p "$OUTPUT_DIR"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/dsh-stack-release.XXXXXX")"
+trap 'rm -rf "$WORK_DIR"' EXIT
+STACK_DIR="$WORK_DIR/stack"
+APP_PATH="$OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH.app"
+DMG_PATH="$OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH.dmg"
+
+if [[ -e "$APP_PATH" || -e "$DMG_PATH" ]]; then
+  echo "Refusing to overwrite existing release output in $OUTPUT_DIR" >&2
+  exit 3
+fi
+
+cd "$ROOT_DIR"
+
+FREEZE_ARGS=(pnpm dsh-stack freeze --profile "$PROFILE" --harness "$HARNESS_ROOT" --output "$STACK_DIR")
+"${FREEZE_ARGS[@]}"
+
+VERIFY_ARGS=(pnpm dsh-stack verify "$STACK_DIR" --harness "$HARNESS_ROOT")
+"${VERIFY_ARGS[@]}"
+
+PACKAGE_ARGS=(pnpm dsh-stack package "$STACK_DIR" --harness "$HARNESS_ROOT" --arch "$ARCH" --output "$APP_PATH")
+if [[ -n "$NODE_RUNTIME" ]]; then PACKAGE_ARGS+=(--node-runtime "$NODE_RUNTIME"); fi
+if [[ -n "$SIGNING_IDENTITY" ]]; then PACKAGE_ARGS+=(--signing-identity "$SIGNING_IDENTITY" --hardened-runtime); fi
+"${PACKAGE_ARGS[@]}"
+
+codesign --verify --deep --strict "$APP_PATH"
+
+STAGING_DIR="$WORK_DIR/dmg"
+mkdir -p "$STAGING_DIR"
+ditto "$APP_PATH" "$STAGING_DIR/$(basename "$APP_PATH")"
+ln -s /Applications "$STAGING_DIR/Applications"
+hdiutil create -volname "DSH Stack Reference $ARCH" -srcfolder "$STAGING_DIR" -ov -format UDZO "$DMG_PATH" >/dev/null
+hdiutil verify "$DMG_PATH" >/dev/null
+
+cp "$STACK_DIR/verification.receipt.json" "$OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH-verification.receipt.json"
+(cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$DMG_PATH")" > "$(basename "$DMG_PATH").sha256")
+
+echo "RELEASE_ARTIFACT"
+echo "Architecture: $ARCH"
+echo "App: $APP_PATH"
+echo "DMG: $DMG_PATH"
+echo "Receipt: $OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH-verification.receipt.json"
+echo "SHA256: $OUTPUT_DIR/$(basename "$DMG_PATH").sha256"
+if [[ -n "$SIGNING_IDENTITY" ]]; then
+  echo "Signing: $SIGNING_IDENTITY + Hardened Runtime"
+else
+  echo "Signing: ad-hoc (Developer ID credential not supplied)"
+fi
+
+if [[ -n "$NOTARY_PROFILE" ]]; then
+  if [[ -z "$SIGNING_IDENTITY" ]]; then
+    echo "Notarization blocked: DSH_STACK_NOTARY_PROFILE requires a Developer ID signing identity." >&2
+    exit 4
+  fi
+  xcrun notarytool submit "$DMG_PATH" --keychain-profile "$NOTARY_PROFILE" --wait
+  xcrun stapler staple "$DMG_PATH"
+  xcrun stapler validate "$DMG_PATH"
+  echo "Notarization: submitted, stapled, and validated"
+else
+  echo "Notarization: PENDING (set DSH_STACK_NOTARY_PROFILE after storing credentials with xcrun notarytool)"
+fi
