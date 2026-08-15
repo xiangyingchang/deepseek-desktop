@@ -22,10 +22,10 @@ This is a manual black-box test. The tester must not be the implementer and must
 1. Double-click the installed `DSH Stack Reference.app`.
 2. Open the official Harness Models settings page and edit the DeepSeek provider.
 3. Confirm the API key field is editable; it must not say that the value is supplied by the startup environment or be disabled.
-4. Enter the valid API key and save it in the official Harness UI.
+4. Paste the valid API key with `⌘V` (or `Edit → Paste`) and save it in the official Harness UI.
 5. Confirm the official Harness Web UI opens inside the `DSH Stack Reference — DeepSeek Harness` app window. Safari/Chrome/a default-browser tab is not an acceptable result.
 6. Create one Web session and complete one real Agent turn.
-7. If a key is rejected, return to the same Models editor, replace it, save, and retry without restarting the app.
+7. If a key is rejected, return to the same Models editor, replace it by paste or typing, save, and retry without restarting the app.
 8. Quit and relaunch the app; confirm the private runtime/Profile and managed credential are reused without Node/pnpm/CLI installation.
 
 ## Acceptance record
@@ -39,6 +39,7 @@ This is a manual black-box test. The tester must not be the implementer and must
 | No manual plugin/Profile edit | TODO | |
 | Official Harness UI opened | TODO | |
 | API key field editable after startup | TODO | |
+| API key can be pasted with `⌘V` / `Edit → Paste` | TODO | |
 | API key stored by official credentials provider | TODO | |
 | One real Agent turn completed | TODO | |
 | Invalid key can be replaced without restart | TODO | |

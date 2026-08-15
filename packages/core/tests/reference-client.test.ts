@@ -8,6 +8,8 @@ test('Reference Client embeds the official Web UI in a Native Shell', async () =
 
   assert.match(shell, /NSWindow/)
   assert.match(shell, /WKWebView/)
+  assert.match(shell, /installApplicationMenu/)
+  assert.match(shell, /Selector\(\("paste:"\)\)/u)
   assert.match(shell, /DSH_STACK_READY/)
   assert.match(shell, /environment\.removeValue\(forKey: name\)/u)
   assert.doesNotMatch(shell, /Keychain|Security/u)

@@ -706,6 +706,48 @@ The v8 Keychain-to-environment injection was a deviation because it prevented th
 
 Ready for packaged v9 black-box validation: enter a valid key in Models, complete a real Agent turn, replace an invalid key without restart, and verify restart persistence.
 
+### 2026-08-15 — Native Shell paste correction
+
+#### 1. Implementation Summary
+
+UAT exposed a second Native Shell defect: typing into the official Models field worked, but `⌘V` did nothing. The official Harness does not disable paste; its provider editor uses a normal password input and its credential model has explicit pasted-value handling. The defect was the minimal AppKit shell not installing a standard macOS Edit menu/responder route. The shell now exposes Undo, Redo, Cut, Copy, Paste, and Select All while leaving the official Harness Web UI and credential ownership unchanged.
+
+#### 2. Files Changed
+
+`packages/core/assets/ReferenceShell.swift`, `packages/core/tests/reference-client.test.ts`, `docs/reference-distribution-uat.md`, and this plan.
+
+#### 3. Architecture Decisions
+
+The fix stays at the Native Shell boundary: it registers the standard AppKit application menu so the focused official `WKWebView` receives the platform paste action. It does not add a custom key field, clipboard bridge, JavaScript injection, or second credential system.
+
+#### 4. Tests Added
+
+Added a static regression assertion that the shell installs the application menu and registers the `paste:` action. The manual black-box UAT now has an explicit paste acceptance row and requires `⌘V` or `Edit → Paste`.
+
+#### 5. Test Results
+
+Swift typecheck passed. `pnpm typecheck` passed. `pnpm test` passed with 15/15 tests. The generated v10 x86_64 app was launched with a clipboard-only test value; `⌘V` inserted the value into the official password field, rendered as bullet characters, and the macOS `Edit` menu was visible. No real API key was used in this regression test.
+
+#### 6. Failure Fixtures Added
+
+The v9 behavior is retained as regression evidence: a focused official password field remained empty after `⌘V` because the Native Shell had no standard Edit menu. This is a shell integration failure, not an official Harness paste restriction.
+
+#### 7. Known Limitations
+
+The current artifact is ad-hoc signed and x86_64; Apple Developer signing/notarization, clean-Mac installation, a real key, and one real Agent turn remain release gates. The paste test proves clipboard routing with a synthetic value, not provider authentication.
+
+#### 8. Security Boundaries
+
+The shell only enables normal AppKit responder actions for the focused official WebView. It does not log, inspect, or persist clipboard contents. Real API-key storage remains in the official Harness credentials provider.
+
+#### 9. PRD Deviations
+
+None. The missing Edit menu was an implementation defect in the Native Shell and is corrected without changing the PRD product boundary.
+
+#### 10. Readiness for Next Milestone
+
+Ready for manual UAT on v10: paste a real key, save it, complete one real Agent turn, replace an invalid key without restart, and verify restart persistence.
+
 ## Regression fixture inventory
 
 The fixture names are PRD-required and each must have a test asserting it cannot produce a false PASS:
