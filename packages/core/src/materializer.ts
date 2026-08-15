@@ -174,6 +174,18 @@ function appendOutput(target: { value: string }, chunk: unknown): void {
   target.value = redactSecrets((target.value + String(chunk)).slice(-20_000))
 }
 
+function signalProcessTree(child: ChildProcess, signal: NodeJS.Signals): void {
+  if (child.pid !== undefined && process.platform !== 'win32') {
+    try {
+      process.kill(-child.pid, signal)
+      return
+    } catch {
+      // Fall back to the direct child when the process group has already exited.
+    }
+  }
+  child.kill(signal)
+}
+
 async function waitForHttp(url: string, child: ChildProcess, output: { stdout: string; stderr: string }): Promise<void> {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     if (child.exitCode !== null) {
@@ -213,6 +225,7 @@ export async function startOfficialWeb(environment: MaterializedEnvironment, opt
   const child = spawn(args[0]!, args.slice(1), {
     cwd: environment.installation.cliCwd,
     env: runtimeEnvironment(process.env, environment.dshHome),
+    detached: process.platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   child.stdout.on('data', chunk => appendOutput({ get value() { return output.stdout }, set value(value: string) { output.stdout = value } }, chunk))
@@ -220,7 +233,7 @@ export async function startOfficialWeb(environment: MaterializedEnvironment, opt
   try {
     await waitForHttp(`http://${host}:${port}/`, child, output)
   } catch (error) {
-    child.kill('SIGTERM')
+    signalProcessTree(child, 'SIGTERM')
     throw error
   }
   let closed = child.exitCode !== null
@@ -232,10 +245,10 @@ export async function startOfficialWeb(environment: MaterializedEnvironment, opt
     get stderr() { return output.stderr },
     stop: async () => {
       if (closed) return
-      child.kill('SIGTERM')
+      signalProcessTree(child, 'SIGTERM')
       await new Promise<void>(resolve => {
         const timer = setTimeout(() => {
-          if (!closed) child.kill('SIGKILL')
+          if (!closed) signalProcessTree(child, 'SIGKILL')
           resolve()
         }, 5000)
         child.once('close', () => { closed = true; clearTimeout(timer); resolve() })
