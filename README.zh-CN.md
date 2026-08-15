@@ -1,5 +1,7 @@
 # DSH Stack
 
+中文版 | [English](README.md)
+
 DSH Stack 是 DeepSeek Harness 的**可复现分发层**。它让一套已经能正常工作的 Harness Profile 可以被冻结（Freeze）、验证（Verify）、重建（Reproduce）并打包（Package）为普通用户可直接下载使用的 macOS 桌面应用。
 
 项目的核心定位很明确：**不重新实现** Harness 运行时、Profile 格式、插件系统、pnpm 依赖解析、Agent Loop 或官方 Web UI。它只做一件事——把已有的组合变成可复现、可分发的产物。
@@ -131,3 +133,5 @@ dsh-stack/
 ## 许可证
 
 本项目为私有项目，尚未指定公开许可证。
+ 中文 | [English](README.md)
+ 
