@@ -1,5 +1,4 @@
 import AppKit
-import Security
 import WebKit
 
 private struct ClientMetadata: Decodable {
@@ -49,11 +48,7 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
         showLoadingWindow()
         do {
             try prepareProfile()
-            var secrets: [String: String] = [:]
-            for name in metadata.secrets {
-                secrets[name] = try resolveSecret(name)
-            }
-            startRuntime(secrets: secrets)
+            startRuntime()
         } catch {
             fail(error.localizedDescription)
         }
@@ -83,74 +78,6 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
                 to: profileURL
             )
         }
-    }
-
-    private func serviceName(for secret: String) -> String {
-        "dsh-stack:\(metadata.id):\(secret)"
-    }
-
-    private func keychainRead(service: String) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: NSUserName(),
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else {
-            return nil
-        }
-        return String(data: data, encoding: .utf8)
-    }
-
-    private func keychainWrite(service: String, value: String) throws {
-        let data = Data(value.utf8)
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: NSUserName()
-        ]
-        let updateStatus = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        if updateStatus == errSecSuccess { return }
-        if updateStatus != errSecItemNotFound {
-            throw NSError(domain: NSOSStatusErrorDomain, code: Int(updateStatus), userInfo: nil)
-        }
-        var item = query
-        item[kSecValueData as String] = data
-        let addStatus = SecItemAdd(item as CFDictionary, nil)
-        if addStatus != errSecSuccess {
-            throw NSError(domain: NSOSStatusErrorDomain, code: Int(addStatus), userInfo: nil)
-        }
-    }
-
-    private func resolveSecret(_ name: String) throws -> String {
-        let environment = ProcessInfo.processInfo.environment
-        if let value = environment[name], !value.isEmpty { return value }
-        if let value = keychainRead(service: serviceName(for: name)), !value.isEmpty { return value }
-
-        let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
-        field.placeholderString = name
-        let alert = NSAlert()
-        alert.messageText = "Configure \(name)"
-        alert.informativeText = "This key is stored in macOS Keychain and is not written to the Stack artifact."
-        alert.accessoryView = field
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else {
-            throw NSError(domain: "DSHStackReference", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "Configuration cancelled: \(name) is required."
-            ])
-        }
-        let value = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else {
-            throw NSError(domain: "DSHStackReference", code: 3, userInfo: [
-                NSLocalizedDescriptionKey: "No value was entered for \(name)."
-            ])
-        }
-        try keychainWrite(service: serviceName(for: name), value: value)
-        return value
     }
 
     private func showLoadingWindow() {
@@ -188,7 +115,7 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
         self.window = window
     }
 
-    private func startRuntime(secrets: [String: String]) {
+    private func startRuntime() {
         let nodeURL = resourcesURL.appendingPathComponent("node")
         let runtimeScriptURL = resourcesURL.appendingPathComponent("reference-client.mjs")
         let child = Process()
@@ -201,7 +128,12 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
         environment["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
         environment["DSH_HOME"] = appDataURL.path
         environment["DSH_TELEMETRY_DISABLED"] = "1"
-        for (name, value) in secrets { environment[name] = value }
+        // Let the official credentials-local provider own API keys. An
+        // inherited `DEEPSEEK_API_KEY` is intentionally removed: Harness
+        // correctly marks inherited environment credentials read-only, while
+        // its managed `$DSH_HOME/.credentials.yaml` is editable from Models
+        // and hot-reloads for the next request.
+        for name in metadata.secrets { environment.removeValue(forKey: name) }
         child.environment = environment
 
         let stdout = Pipe()

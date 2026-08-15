@@ -611,7 +611,7 @@ This track starts only after the core Freeze/Verify/Reproduce chain is real. It 
 2. Require a valid Runtime PASS receipt or run Runtime Verify through the existing pipeline.
 3. Bundle a private Node runtime, exact Harness installation, exact Profile inputs, and the official Web UI; do not depend on system Node, pnpm, DSH CLI, or a user's Profile.
 4. Generate a generic AppKit/WebKit Native Shell for lifecycle, secret onboarding, diagnostics, OS integration, and hosting the official UI in its own window; never hand the URL to the default browser.
-5. Keep `DEEPSEEK_API_KEY` and all other secret values outside the artifact and use platform-appropriate secure storage.
+5. Keep `DEEPSEEK_API_KEY` and all other secret values outside the artifact and do not inject them into the inherited Harness environment; delegate editable storage and hot reload to the official `credentials-local` provider in the private `DSH_HOME`.
 6. Produce a macOS `.app`/`.dmg` only after the platform runtime and signing/notarization strategy are validated; do not claim an installable client from a zip of source files.
 
 **Dependencies:** M8 GO review, M4 materializer, M5 verifier, M6 receipt, and a concrete runtime bundling strategy.
@@ -663,6 +663,48 @@ The initial v6 Reference Client handed the local URL to the default browser, whi
 #### 10. Readiness for Next Milestone
 
 The corrected Native Shell Reference Client path is runnable. Product E2E completion still requires the manual UAT in `docs/reference-distribution-uat.md`, a real API key, a separate clean Mac, and the PRD's STOP AND REVIEW/GO decision.
+
+### 2026-08-15 — Editable credential correction
+
+#### 1. Implementation Summary
+
+Corrected the Reference Client credential boundary after UAT exposed that the Native Shell read a Keychain value and injected it as `DEEPSEEK_API_KEY`. The official Harness deliberately marks inherited environment credentials read-only. The Native Shell now removes Stack-declared secret names from the child environment and lets the official `credentials-local` provider own the writable credential document and hot reload.
+
+#### 2. Files Changed
+
+`packages/core/assets/ReferenceShell.swift`, `packages/core/assets/reference-client.mjs`, `packages/core/tests/reference-client.test.ts`, `README.md`, `docs/reference-distribution-uat.md`, and this plan.
+
+#### 3. Architecture Decisions
+
+The Reference Client owns runtime lifecycle and the Native Shell window only. It does not own a second credential system and does not copy a Keychain value into the Harness environment. The official Models page writes `$DSH_HOME/.credentials.yaml`; the official DeepSeek adapter resolves that credential on each request.
+
+#### 4. Tests Added
+
+Added a regression test asserting that the Native Shell and runtime bootstrap remove Stack-declared API-key environment values, use the official readiness handshake, and never call the default browser or Keychain.
+
+#### 5. Test Results
+
+Typecheck, the full local suite, and the real Harness integration suite pass after the correction. Packaged v9 is a signed x86_64 Mach-O client; when launched with an intentionally invalid inherited key, the Harness child process contained no `DEEPSEEK_API_KEY`, and the Native Shell displayed the official editable “Add an API Key” form. A real key save and Agent turn remain part of manual UAT.
+
+#### 6. Failure Fixtures Added
+
+The reported failure is recorded as a regression case: inherited `DEEPSEEK_API_KEY` makes the official Models field read-only and remains stale after an invalid key. The corrected path removes that inherited layer.
+
+#### 7. Known Limitations
+
+The credential document is protected by the official Harness owner-only file policy, not macOS Keychain. Apple Developer signing/notarization, a separate clean-Mac UAT, and a real key remain release gates.
+
+#### 8. Security Boundaries
+
+The Stack artifact contains only secret names. The Native Shell removes those names from the runtime environment. Secret values are handled by the official credentials provider and are never logged, committed, or embedded in the `.app`.
+
+#### 9. PRD Deviations
+
+The v8 Keychain-to-environment injection was a deviation because it prevented the ordinary user from changing a credential in the official UI. v9 corrects it; the current implementation has no remaining deviation for editable credential ownership.
+
+#### 10. Readiness for Next Milestone
+
+Ready for packaged v9 black-box validation: enter a valid key in Models, complete a real Agent turn, replace an invalid key without restart, and verify restart persistence.
 
 ## Regression fixture inventory
 

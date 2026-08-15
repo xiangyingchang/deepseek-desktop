@@ -39,19 +39,18 @@ async function waitForWeb(url, child) {
   throw new Error(`official Harness Web UI did not become ready at ${url}`)
 }
 
-const secrets = {}
-for (const name of metadata.secrets) {
-  const value = process.env[name]
-  if (!value) throw new Error(`${name} is required; configure it in the Reference Client prompt or Keychain`)
-  secrets[name] = value
-}
 const port = await availablePort()
 const nodePath = join(resources, 'node')
 const harnessBin = join(resources, 'harness', 'lib', 'bin.js')
 const url = `http://127.0.0.1:${port}`
+const runtimeEnvironment = { ...process.env, DSH_HOME: appData, DSH_TELEMETRY_DISABLED: '1' }
+// The official credentials-local provider must own the writable credential
+// path. Inherited API-key environment values are deliberately read-only in
+// Harness, so never pass Stack-declared secrets into the official process.
+for (const name of metadata.secrets) delete runtimeEnvironment[name]
 const child = spawn(nodePath, [harnessBin, 'web', '--host', '127.0.0.1', '--port', String(port)], {
   cwd: resources,
-  env: { ...process.env, ...secrets, DSH_HOME: appData, DSH_TELEMETRY_DISABLED: '1' },
+  env: runtimeEnvironment,
   stdio: ['ignore', 'pipe', 'pipe'],
 })
 child.stdout.on('data', chunk => process.stderr.write(String(chunk).replace(/sk-[A-Za-z0-9_-]{8,}/gu, '[REDACTED]')))
