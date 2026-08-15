@@ -55,9 +55,16 @@ jobs:
         working-directory: deepseek-harness
         run: pnpm install --frozen-lockfile
 
+      - name: Initialize official web Profile
+        working-directory: deepseek-harness
+        env:
+          DSH_HOME: ${{ runner.temp }}/dsh-home
+        run: CI=true pnpm dsh --profile web --help >/dev/null
+
       - name: Freeze → Verify → Materialize → Package
         env:
           DSH_HARNESS_ROOT: ${{ github.workspace }}/deepseek-harness
+          DSH_HOME: ${{ runner.temp }}/dsh-home
           DSH_STACK_ARCH: ${{ matrix.arch }}
           DSH_STACK_OUTPUT_DIR: ${{ github.workspace }}/dist/release/${{ matrix.arch }}
         run: bash scripts/build-macos-reference.sh
