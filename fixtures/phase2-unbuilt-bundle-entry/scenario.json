@@ -1,0 +1,11 @@
+{
+  "kind": "phase2-unbuilt-bundle-entry",
+  "source": "https://github.com/hyls9527/dsh-bundle-updater",
+  "commit": "671980dcce75e2e86e368dcaff2fc66bbca705e5",
+  "profile": "web",
+  "expected": "FAIL",
+  "failureStage": "PREFLIGHT",
+  "diagnostic": "PACKAGE_BUILD_FAILED",
+  "observedCause": "package main lib/index.js is absent from the Git-installed bundle",
+  "policy": "stop before Freeze and require the documented build/prepare artifact"
+}

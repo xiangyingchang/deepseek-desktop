@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url'
 
 const resources = dirname(fileURLToPath(import.meta.url))
 const metadata = JSON.parse(await readFile(join(resources, 'client.json'), 'utf8'))
-const appData = join(process.env.HOME ?? process.cwd(), 'Library', 'Application Support', 'DSH Stack', metadata.id)
+const storageId = typeof metadata.storageId === 'string' && metadata.storageId.length > 0 ? metadata.storageId : metadata.id
+const appData = join(process.env.HOME ?? process.cwd(), 'Library', 'Application Support', 'DSH Stack', storageId)
 const profileDestination = join(appData, 'profiles', metadata.profile)
 const sourceProfile = join(resources, 'profile')
 await mkdir(join(appData, 'profiles'), { recursive: true })
@@ -48,7 +49,7 @@ const runtimeEnvironment = { ...process.env, DSH_HOME: appData, DSH_TELEMETRY_DI
 // path. Inherited API-key environment values are deliberately read-only in
 // Harness, so never pass Stack-declared secrets into the official process.
 for (const name of metadata.secrets) delete runtimeEnvironment[name]
-const child = spawn(nodePath, [harnessBin, 'web', '--host', '127.0.0.1', '--port', String(port)], {
+const child = spawn(nodePath, [harnessBin, '--profile', metadata.profile, '--host', '127.0.0.1', '--port', String(port)], {
   cwd: resources,
   env: runtimeEnvironment,
   stdio: ['ignore', 'pipe', 'pipe'],

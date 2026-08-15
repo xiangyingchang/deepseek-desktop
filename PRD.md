@@ -3105,6 +3105,30 @@ Run
 
 > **DSH Stack is a reproducibility, verification, and distribution layer for DeepSeek Harness. It captures working profiles, proves they can be reconstructed in clean environments, and turns verified Agent environments into portable distributions that ordinary users can run without understanding the underlying Harness setup.**
 
+## Phase 2 Architecture Boundary (Locked)
+
+Phase 2 supports real-world Profile variation without accumulating an ecosystem inside runtime artifacts.
+
+**No ecosystem accumulation in runtime artifacts.** The capability that grows is the generic DSH Stack layer: `HarnessAdapter`, Preflight rules, compatibility rules, verification logic, failure fixtures, and tests. A generated App must remain self-contained and must contain only:
+
+```text
+Base Runtime
++ Exact Harness Closure
++ Current Profile Closure
+```
+
+It must never become:
+
+```text
+Base Runtime
++ Profile A
++ Profile B
++ Profile C
++ all known plugins
+```
+
+DSH Stack may understand many Profiles, but the App for Profile A may contain only the runtime and exact dependency closure required to run Profile A. Phase 2 therefore does not introduce a shared Runtime Manager, global plugin repository, Marketplace, Registry, or Studio, and must not trade self-contained distribution for a shared-runtime optimization.
+
 当前实施顺序仍然必须保持：
 
 ```text

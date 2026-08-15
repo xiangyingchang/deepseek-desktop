@@ -12,6 +12,8 @@ import {
   type VerificationReceipt,
 } from './index.ts'
 import { SourceHarnessAdapter, currentPlatform } from './source-adapter.ts'
+import { StackMaterializer, type MaterializedEnvironment } from './materializer.ts'
+import { createPackageSizeReport, writePackageSizeReport, type PackageSizeReport } from './package-size-report.ts'
 import { verifyIntegrity } from './integrity.ts'
 import { absolutePath } from './paths.ts'
 
@@ -288,6 +290,8 @@ export interface PackageResult {
   harnessVersion: string
   platform: { os: string; arch: string }
   signing: SigningResult
+  sizeReport?: PackageSizeReport
+  sizeReportPath?: string
 }
 
 /** Package a verified Stack as a macOS Native Shell over the official Harness runtime/UI. */
@@ -301,6 +305,7 @@ export async function packageStack(options: {
   nodeRuntime?: string
   signingIdentity?: string
   hardenedRuntime?: boolean
+  sizeReport?: boolean
 }): Promise<PackageResult> {
   const stack = await readStackManifest(options.stackRoot)
   const integrity = await verifyIntegrity(options.stackRoot)
@@ -362,27 +367,56 @@ export async function packageStack(options: {
   const resources = join(contents, 'Resources')
   const macos = join(contents, 'MacOS')
   const harnessDestination = join(resources, 'harness')
-  await mkdir(resources, { recursive: true })
-  await mkdir(macos, { recursive: true })
-  packageTrace('deploying official Harness production runtime')
-  await runDeploy(installation.root, harnessDestination)
-  packageTrace('resolving missing official workspace dependencies')
-  const copiedWorkspacePackages = await copyWorkspacePackageClosure(installation.root, harnessDestination)
-  packageTrace(`workspace dependency closure complete (${copiedWorkspacePackages.length} packages copied)`)
-  packageTrace('embedding Node runtime and dynamic libraries')
-  await bundleNodeRuntime(nodeRuntime, join(resources, 'node'), join(resources, 'lib'))
-  packageTrace('copying Stack Profile and receipt')
-  await cp(join(options.stackRoot, 'profile'), join(resources, 'profile'), { recursive: true })
-  await copyFile(join(ASSET_ROOT, 'reference-client.mjs'), join(resources, 'reference-client.mjs'))
-  await copyFile(join(ASSET_ROOT, 'Info.plist'), join(contents, 'Info.plist'))
-  await copyFile(join(options.stackRoot, 'stack.yaml'), join(resources, 'stack.yaml'))
-  await copyFile(join(options.stackRoot, 'stack.integrity.json'), join(resources, 'stack.integrity.json'))
-  await copyFile(join(options.stackRoot, 'verification.receipt.json'), join(resources, 'verification.receipt.json'))
-  await writeFile(join(resources, 'client.json'), JSON.stringify({ id: stack.id, profile: stack.harness.profile, secrets: stack.requirements.secrets }, null, 2) + '\n', 'utf8')
-  packageTrace(`compiling ${targetArch} Native Shell`)
-  compileNativeShell(join(ASSET_ROOT, 'ReferenceShell.swift'), join(macos, 'dsh-stack-reference'), targetArch)
-  await chmod(join(macos, 'dsh-stack-reference'), 0o755)
-  packageTrace('signing App bundle')
-  const signing = await signApp(appPath, { identity: options.signingIdentity, hardenedRuntime: options.hardenedRuntime })
-  return { appPath, runtimeRoot: harnessDestination, copiedWorkspacePackages, harnessVersion: installation.version, platform: { os: hostPlatform.os, arch: targetArch }, signing }
+  let materialized: MaterializedEnvironment | undefined
+  try {
+    packageTrace('materializing exact Profile dependency closure')
+    materialized = await new StackMaterializer().materialize({ stackRoot: options.stackRoot, stack, installation })
+    await mkdir(resources, { recursive: true })
+    await mkdir(macos, { recursive: true })
+    packageTrace('deploying official Harness production runtime')
+    await runDeploy(installation.root, harnessDestination)
+    packageTrace('resolving missing official workspace dependencies')
+    const copiedWorkspacePackages = await copyWorkspacePackageClosure(installation.root, harnessDestination)
+    packageTrace(`workspace dependency closure complete (${copiedWorkspacePackages.length} packages copied)`)
+    packageTrace('embedding Node runtime and dynamic libraries')
+    await bundleNodeRuntime(nodeRuntime, join(resources, 'node'), join(resources, 'lib'))
+    packageTrace('copying Stack Profile, exact dependency closure, and receipt')
+    await cp(materialized.profileDir, join(resources, 'profile'), { recursive: true, dereference: true })
+    await copyFile(join(ASSET_ROOT, 'reference-client.mjs'), join(resources, 'reference-client.mjs'))
+    await copyFile(join(ASSET_ROOT, 'Info.plist'), join(contents, 'Info.plist'))
+    await copyFile(join(options.stackRoot, 'stack.yaml'), join(resources, 'stack.yaml'))
+    await copyFile(join(options.stackRoot, 'stack.integrity.json'), join(resources, 'stack.integrity.json'))
+    await copyFile(join(options.stackRoot, 'verification.receipt.json'), join(resources, 'verification.receipt.json'))
+    const storageId = `${stack.id}-${integrity.manifest.artifactHash.replace(/^sha256-/u, '').slice(0, 16)}`
+    await writeFile(join(resources, 'client.json'), JSON.stringify({ id: stack.id, storageId, profile: stack.harness.profile, secrets: stack.requirements.secrets }, null, 2) + '\n', 'utf8')
+    packageTrace(`compiling ${targetArch} Native Shell`)
+    compileNativeShell(join(ASSET_ROOT, 'ReferenceShell.swift'), join(macos, 'dsh-stack-reference'), targetArch)
+    await chmod(join(macos, 'dsh-stack-reference'), 0o755)
+    packageTrace('signing App bundle')
+    const signing = await signApp(appPath, { identity: options.signingIdentity, hardenedRuntime: options.hardenedRuntime })
+    const sizeReportPath = options.sizeReport === true
+      ? join(dirname(appPath), `${basename(appPath, '.app')}-package-size-report.json`)
+      : undefined
+    const sizeReport = options.sizeReport === true
+      ? await createPackageSizeReport({
+        appPath,
+        profile: stack.harness.profile,
+        architecture: targetArch,
+        baselineBytes: Number(process.env.DSH_STACK_SIZE_BASELINE_BYTES) || undefined,
+      })
+      : undefined
+    if (sizeReport !== undefined && sizeReportPath !== undefined) await writePackageSizeReport(sizeReportPath, sizeReport)
+    return {
+      appPath,
+      runtimeRoot: harnessDestination,
+      copiedWorkspacePackages,
+      harnessVersion: installation.version,
+      platform: { os: hostPlatform.os, arch: targetArch },
+      signing,
+      ...(sizeReport === undefined ? {} : { sizeReport }),
+      ...(sizeReportPath === undefined ? {} : { sizeReportPath }),
+    }
+  } finally {
+    if (materialized !== undefined) await materialized.cleanup().catch(() => {})
+  }
 }

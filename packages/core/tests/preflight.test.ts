@@ -49,6 +49,16 @@ test('preflight reads pnpm v9 importer dependency sections', async () => {
   await rm(root, { recursive: true, force: true })
 })
 
+test('preflight rejects a lockfile specifier that disagrees with package.json', async () => {
+  const root = await mkdtemp(join('/tmp', 'dsh-stack-preflight-'))
+  const inspection = await fixtureInspection(root, { dependencies: { example: '1.0.0' } })
+  await writeFile(join(root, 'profile', 'pnpm-lock.yaml'), 'lockfileVersion: \'9.0\'\nimporters:\n  .:\n    dependencies:\n      example:\n        specifier: 2.0.0\n        version: 2.0.0\n', 'utf8')
+  inspection.inputs.push({ relativePath: 'pnpm-lock.yaml', absolutePath: join(root, 'profile', 'pnpm-lock.yaml'), kind: 'lockfile' })
+  const result = await new SourceHarnessAdapter().preflight(inspection)
+  assert.equal(result.diagnostics.some(item => item.code === 'LOCKFILE_MISMATCH'), true)
+  await rm(root, { recursive: true, force: true })
+})
+
 test('preflight rejects local links and floating Git refs', async () => {
   const root = await mkdtemp(join('/tmp', 'dsh-stack-preflight-'))
   const inspection = await fixtureInspection(root, { dependencies: { local: 'link:../plugin', remote: 'github:example/plugin#main' } })
@@ -56,6 +66,25 @@ test('preflight rejects local links and floating Git refs', async () => {
   assert.equal(result.status, 'INCONSISTENT')
   assert.equal(result.diagnostics.filter(item => item.code === 'NON_PORTABLE_DEPENDENCY').length, 1)
   assert.equal(result.portability.nonPortable.length, 2)
+  await rm(root, { recursive: true, force: true })
+})
+
+test('preflight blocks duplicate runtime packages, dangling patch references, and missing bundle entries', async () => {
+  const root = await mkdtemp(join('/tmp', 'dsh-stack-preflight-'))
+  const inspection = await fixtureInspection(root, { dependencies: { '@deepseek-ai/dsh': '0.1.0' } })
+  inspection.bundles = [{
+    name: 'broken-bundle',
+    resolved: true,
+    hasBundleDeclaration: true,
+    patchReferences: ['broken-bundle'],
+    entryPath: join(root, 'profile', 'node_modules', 'broken-bundle', 'lib', 'index.js'),
+    entryExists: false,
+  }]
+  inspection.danglingReferences = ['missing-plugin']
+  const result = await new SourceHarnessAdapter().preflight(inspection)
+  assert.equal(result.diagnostics.some(item => item.message.includes('second Harness/runtime package')), true)
+  assert.equal(result.diagnostics.some(item => item.code === 'PACKAGE_BUILD_FAILED'), true)
+  assert.equal(result.diagnostics.some(item => item.message.includes('not resolvable')), true)
   await rm(root, { recursive: true, force: true })
 })
 

@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module'
 import { execFileSync } from 'node:child_process'
 import { readFile, readdir, stat } from 'node:fs/promises'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { platform, arch, homedir } from 'node:os'
 import {
@@ -26,14 +26,28 @@ interface JsonObject {
 
 const GENERATED_FILES = new Set(['cordis.yml'])
 const EXCLUDED_DIRECTORIES = new Set([
+  '.git',
+  '.dsh',
   'node_modules',
   '.cache',
   'cache',
+  'coverage',
+  'dist',
+  'build',
   'sessions',
   'logs',
   'tmp',
 ])
+const EXCLUDED_FILES = new Set(['.credentials.yaml', 'credentials.yaml'])
 const EXPECTED_FILES = new Set(['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'cordis.patch.yml'])
+const LIFECYCLE_SCRIPTS = new Set(['preinstall', 'install', 'postinstall', 'prepare'])
+const DUPLICATE_RUNTIME_PACKAGES = new Set([
+  '@deepseek-ai/dsh',
+  '@deepseek-ai/dsh-cli',
+  '@deepseek-ai/dsh-app-boot',
+  '@deepseek-ai/dsh-home-paths',
+  '@deepseek-ai/cordis',
+])
 
 function objectValue(value: unknown): JsonObject | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : undefined
@@ -52,6 +66,16 @@ function stringValue(value: unknown): string | undefined {
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+}
+
+function packageEntry(manifest: JsonObject): string | undefined {
+  const main = stringValue(manifest.main)
+  if (main !== undefined) return main
+  const exportsValue = manifest.exports
+  if (typeof exportsValue === 'string') return exportsValue
+  const exportsObject = objectValue(exportsValue)
+  const root = objectValue(exportsObject?.['.']) ?? exportsObject
+  return stringValue(root?.default)
 }
 
 function commandOutput(command: string, args: readonly string[], cwd: string): string | undefined {
@@ -94,7 +118,7 @@ async function walkRegularFiles(root: string, current = root): Promise<string[]>
       if (!EXCLUDED_DIRECTORIES.has(entry.name)) output.push(...await walkRegularFiles(root, full))
       continue
     }
-    if (entry.isFile()) output.push(relativePath)
+    if (entry.isFile() && !EXCLUDED_FILES.has(entry.name)) output.push(relativePath)
   }
   return output
 }
@@ -124,7 +148,23 @@ function resolvePackageRoot(packageName: string, anchors: readonly string[]): st
       const root = packageRootFromEntry(entry, packageName)
       if (root !== undefined) return root
     } catch {
-      // The next anchor is the official fallback for a Profile bundle.
+      // A bundle is identified by its package.json and dsh.bundle declaration;
+      // it is valid for a configuration-only bundle to have no `main` entry.
+      // Fall through to package-directory resolution instead of treating that
+      // bundle as absent.
+    }
+    const packagePath = packageName.split('/')
+    let current = anchor.endsWith('package.json') ? dirname(anchor) : anchor
+    while (current !== dirname(current)) {
+      const candidate = join(current, 'node_modules', ...packagePath)
+      try {
+        const root = realpathSync(candidate)
+        const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as JsonObject
+        if (manifest.name === packageName) return root
+      } catch {
+        // Try the next node_modules ancestor, matching Node's lookup boundary.
+      }
+      current = dirname(current)
     }
   }
   return undefined
@@ -165,6 +205,42 @@ function dependencyPortability(name: string, spec: string): string | undefined {
   }
   if (spec.startsWith('/') || /^[A-Za-z]:[\\/]/u.test(spec)) return `${name}: absolute local dependency ${spec}`
   return undefined
+}
+
+function platformDependencyIssue(name: string): string | undefined {
+  const value = name.toLowerCase()
+  if (value.includes('darwin') && process.platform !== 'darwin') return `${name}: dependency targets darwin on ${process.platform}`
+  if (value.includes('win32') && process.platform !== 'win32') return `${name}: dependency targets win32 on ${process.platform}`
+  if (value.includes('linux') && process.platform !== 'linux') return `${name}: dependency targets linux on ${process.platform}`
+  if (value.includes('arm64') && arch() !== 'arm64') return `${name}: dependency targets arm64 on ${arch()}`
+  if (value.includes('x64') && arch() !== 'x64') return `${name}: dependency targets x64 on ${arch()}`
+  return undefined
+}
+
+function collectPatchReferences(value: unknown, output: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) collectPatchReferences(item, output)
+    return
+  }
+  const object = objectValue(value)
+  if (object === undefined) return
+  const name = stringValue(object.name)
+  if (name !== undefined) output.add(name)
+  for (const item of Object.values(object)) collectPatchReferences(item, output)
+}
+
+async function readPatchReferences(path: string | undefined): Promise<string[]> {
+  if (path === undefined) return []
+  try {
+    const source = await readFile(path, 'utf8')
+    if (/!!js\b/u.test(source)) return []
+    const value = await readSafeYaml(path)
+    const references = new Set<string>()
+    collectPatchReferences(value, references)
+    return [...references].sort()
+  } catch {
+    return []
+  }
 }
 
 function lockImporter(lock: unknown): JsonObject | undefined {
@@ -292,14 +368,31 @@ export class SourceHarnessAdapter implements HarnessAdapter {
       const dsh = objectValue(bundleManifest.dsh)
       const bundle = objectValue(dsh?.bundle)
       const patch = stringValue(bundle?.patch)
+      const patchPath = patch === undefined ? undefined : join(packageDir, patch)
+      const scripts = objectValue(bundleManifest.scripts)
+      const lifecycleScripts = scripts === undefined
+        ? []
+        : Object.keys(scripts).filter(name => LIFECYCLE_SCRIPTS.has(name)).sort()
+      const main = packageEntry(bundleManifest)
       bundles.push({
         name,
         packageDir,
         packageVersion: stringValue(bundleManifest.version),
-        patchPath: patch === undefined ? undefined : join(packageDir, patch),
+        patchPath,
+        patchReferences: await readPatchReferences(patchPath),
+        ...(main === undefined ? {} : { entryPath: join(packageDir, main), entryExists: existsSync(join(packageDir, main)) }),
+        lifecycleScripts,
         resolved: true,
         hasBundleDeclaration: patch !== undefined,
       })
+    }
+    const danglingReferences = new Set<string>()
+    const profilePatch = fileNames.includes('cordis.patch.yml') ? join(directory, 'cordis.patch.yml') : undefined
+    const patchPaths = [profilePatch, ...bundles.map(bundle => bundle.patchPath)].filter((path): path is string => path !== undefined)
+    for (const patchPath of patchPaths) {
+      for (const reference of await readPatchReferences(patchPath)) {
+        if (resolvePackageRoot(reference, anchors) === undefined) danglingReferences.add(reference)
+      }
     }
     return {
       name: profileName,
@@ -313,6 +406,7 @@ export class SourceHarnessAdapter implements HarnessAdapter {
       excludedEntries: ['node_modules', ...fileNames.filter(file => file.startsWith('node_modules/'))],
       missingExpectedInputs: [...EXPECTED_FILES].filter(file => !fileNames.includes(file)),
       bundles,
+      danglingReferences: [...danglingReferences].sort(),
       profileNodeModulesPresent: existsSync(join(directory, 'node_modules')),
       fallbackNodeModulesPresent: existsSync(join(home, 'profiles', 'node_modules')),
     }
@@ -345,9 +439,19 @@ export class SourceHarnessAdapter implements HarnessAdapter {
           }))
         } else {
           for (const name of Object.keys(dependencies)) {
-            if (!(name in importer)) diagnostics.push(diagnostic('LOCKFILE_MISMATCH', 'PREFLIGHT', `Lockfile importer does not contain ${name}`, {
+            if (!(name in importer)) {
+              diagnostics.push(diagnostic('LOCKFILE_MISMATCH', 'PREFLIGHT', `Lockfile importer does not contain ${name}`, {
+                component: lockInput.relativePath,
+                action: 'Regenerate the lockfile without changing the Profile manifest by hand.',
+              }))
+              continue
+            }
+            const lockEntry = objectValue(importer[name])
+            const specifier = stringValue(lockEntry?.specifier)
+            if (specifier !== undefined && specifier !== dependencies[name]) diagnostics.push(diagnostic('LOCKFILE_MISMATCH', 'PREFLIGHT', `Lockfile specifier for ${name} does not match package.json`, {
               component: lockInput.relativePath,
-              action: 'Regenerate the lockfile without changing the Profile manifest by hand.',
+              action: 'Regenerate the lockfile with the official package manager and keep package.json unchanged.',
+              details: { manifest: dependencies[name]!, lockfile: specifier },
             }))
           }
         }
@@ -362,6 +466,11 @@ export class SourceHarnessAdapter implements HarnessAdapter {
     for (const [name, spec] of Object.entries(dependencies)) {
       const issue = dependencyPortability(name, spec)
       if (issue !== undefined) nonPortable.push(issue)
+      const platformIssue = platformDependencyIssue(name)
+      if (platformIssue !== undefined) diagnostics.push(diagnostic('UNSUPPORTED_PLATFORM', 'PREFLIGHT', platformIssue, {
+        component: 'package.json',
+        action: 'Use a Profile dependency closure built for the target platform, or declare the supported platform explicitly.',
+      }))
     }
     if (nonPortable.length > 0) {
       diagnostics.push(diagnostic('NON_PORTABLE_DEPENDENCY', 'PREFLIGHT', 'Profile contains dependency sources that cannot be reproduced by V0.1', {
@@ -370,6 +479,12 @@ export class SourceHarnessAdapter implements HarnessAdapter {
         details: { sources: nonPortable.join('; ') },
       }))
     }
+    const duplicateRuntimePackages = Object.keys(dependencies).filter(name => DUPLICATE_RUNTIME_PACKAGES.has(name))
+    if (duplicateRuntimePackages.length > 0) diagnostics.push(diagnostic('PROFILE_STATE_INCONSISTENT', 'PREFLIGHT', 'Profile declares a second Harness/runtime package instead of using the official installation closure', {
+      component: 'package.json',
+      action: 'Remove the duplicate Harness/runtime dependency and keep only the Profile-owned bundle dependencies.',
+      details: { packages: duplicateRuntimePackages.join(', ') },
+    }))
     for (const bundle of inspection.bundles) {
       if (!bundle.resolved) diagnostics.push(diagnostic('PROFILE_STATE_INCONSISTENT', 'PREFLIGHT', `Profile bundle ${bundle.name} cannot be resolved by the official Harness installation`, {
         component: 'dsh.profile.bundles',
@@ -383,7 +498,21 @@ export class SourceHarnessAdapter implements HarnessAdapter {
         component: bundle.patchPath,
         action: 'Repair the installed Harness bundle before freezing.',
       }))
+      const references = bundle.patchReferences ?? []
+      if (references.includes(bundle.name) && bundle.entryPath !== undefined && bundle.entryExists === false) diagnostics.push(diagnostic('PACKAGE_BUILD_FAILED', 'PREFLIGHT', `Bundle ${bundle.name} declares entry ${bundle.entryPath}, but the entry is absent`, {
+        component: bundle.name,
+        action: 'Run the bundle’s documented build/prepare step before installing it, then regenerate the lockfile and inspect again.',
+      }))
+      if ((bundle.lifecycleScripts ?? []).length > 0) warnings.push(diagnostic('PROFILE_STATE_INCONSISTENT', 'PREFLIGHT', `Bundle ${bundle.name} has lifecycle scripts: ${(bundle.lifecycleScripts ?? []).join(', ')}`, {
+        component: `${bundle.name}/package.json`,
+        action: 'Confirm the frozen package manager policy can reproduce these scripts in a clean environment.',
+      }))
     }
+    if ((inspection.danglingReferences ?? []).length > 0) diagnostics.push(diagnostic('CORDIS_CONFIGURATION_ERROR', 'PREFLIGHT', 'Cordis patch references plugins that are not resolvable from the Harness or Profile closure', {
+      component: 'cordis.patch.yml',
+      action: 'Install the referenced official or Profile-owned bundle before freezing; do not replace it with a hidden fallback.',
+      details: { references: inspection.danglingReferences!.join(', ') },
+    }))
     const patch = inspection.inputs.find(input => input.relativePath === 'cordis.patch.yml')
     if (patch !== undefined) {
       try {

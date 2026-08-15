@@ -1,0 +1,11 @@
+{
+  "kind": "phase2-workspace-link",
+  "source": "https://github.com/gejiliang/dshr",
+  "commit": "7ea98bf1daf36cb19a5299b4775f81420ba26a3e",
+  "profile": "dshr",
+  "expected": "UNSUPPORTED",
+  "failureStage": "PREFLIGHT",
+  "diagnostic": "NON_PORTABLE_DEPENDENCY",
+  "observedCause": "Profile dependency is link:/tmp/.../packages/bundle and is workspace-local",
+  "policy": "do not rewrite a local workspace dependency into a fake registry package"
+}

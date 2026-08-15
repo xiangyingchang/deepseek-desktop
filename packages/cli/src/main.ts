@@ -52,6 +52,7 @@ Verify/run options:
   --node-runtime <path>   explicit target-architecture Node executable for Package
   --signing-identity <id> codesign identity; default is ad-hoc
   --hardened-runtime      enable Hardened Runtime when signing
+  --size-report           write package-size-report.json next to the App
   --live                  reserved; returns UNSUPPORTED in V0.1
 `
 
@@ -73,6 +74,7 @@ interface ParsedArgs {
   nodeRuntime?: string
   signingIdentity?: string
   hardenedRuntime: boolean
+  sizeReport: boolean
 }
 
 function optionValue(argv: readonly string[], index: number, flag: string): { value: string; next: number } {
@@ -87,7 +89,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs | 'help' | 'versi
   if (argv.includes('--version') || argv.includes('-V')) return 'version'
   const command = argv[0]
   if (command !== 'inspect' && command !== 'freeze' && command !== 'verify' && command !== 'run' && command !== 'package') throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unknown command ${JSON.stringify(command)}`, action: 'Run dsh-stack --help to see the supported commands.' }, EXIT_CODES.invalidInput)
-  const parsed: ParsedArgs = { command, profile: 'web', json: false, force: false, clean: false, live: false, keepTemp: false, hardenedRuntime: false }
+  const parsed: ParsedArgs = { command, profile: 'web', json: false, force: false, clean: false, live: false, keepTemp: false, hardenedRuntime: false, sizeReport: false }
   let positional: string | undefined
   for (let index = 1; index < argv.length; index += 1) {
     const token = argv[index]!
@@ -119,6 +121,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs | 'help' | 'versi
     } else if (token === '--signing-identity') {
       const item = optionValue(argv, index, token); parsed.signingIdentity = item.value; index = item.next
     } else if (token === '--hardened-runtime') parsed.hardenedRuntime = true
+    else if (token === '--size-report') parsed.sizeReport = true
     else if (token.startsWith('--')) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unknown option ${token}`, action: 'Run dsh-stack --help to see the supported options.' }, EXIT_CODES.invalidInput)
     else if (positional === undefined) positional = token
     else throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unexpected argument ${token}`, action: 'Pass only one Stack path for verify/run.' }, EXIT_CODES.invalidInput)
@@ -187,9 +190,9 @@ async function main(argv = process.argv.slice(2)): Promise<number> {
   if (parsed.command === 'package') {
     const architectureSuffix = parsed.arch === undefined ? '' : ` ${parsed.arch}`
     const output = absolutePath(parsed.output ?? `./dist/reference-client/${parsed.profile === 'web' ? `DSH Stack Reference${architectureSuffix}.app` : `DSH Stack ${parsed.profile}${architectureSuffix}.app`}`)
-    const result = await packageStack({ stackRoot, output, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), arch: parsed.arch, nodeRuntime: parsed.nodeRuntime, signingIdentity: parsed.signingIdentity, hardenedRuntime: parsed.hardenedRuntime || undefined })
+    const result = await packageStack({ stackRoot, output, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), arch: parsed.arch, nodeRuntime: parsed.nodeRuntime, signingIdentity: parsed.signingIdentity, hardenedRuntime: parsed.hardenedRuntime || undefined, sizeReport: parsed.sizeReport })
     if (parsed.json) console.log(JSON.stringify(result, null, 2))
-    else console.log(`PACKAGED\nClient: ${result.appPath}\nArchitecture: ${result.platform.arch}\nSigning: ${result.signing.mode}${result.signing.hardenedRuntime ? ' + hardened-runtime' : ''}\nHarness: ${result.harnessVersion}\nRuntime: ${result.runtimeRoot}`)
+    else console.log(`PACKAGED\nClient: ${result.appPath}\nArchitecture: ${result.platform.arch}\nSigning: ${result.signing.mode}${result.signing.hardenedRuntime ? ' + hardened-runtime' : ''}\nHarness: ${result.harnessVersion}\nRuntime: ${result.runtimeRoot}${result.sizeReportPath === undefined ? '' : `\nSize report: ${result.sizeReportPath}`}`)
     return EXIT_CODES.success
   }
   if (parsed.command === 'verify') {

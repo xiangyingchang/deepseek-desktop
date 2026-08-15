@@ -17,6 +17,8 @@ DSH Stack 是 DeepSeek Harness 的**可复现分发层**。它让一套已经能
 
 `v0.1.0-reference-v10` 是**公开参考版本 / RC 预发布**，不是稳定版。arm64 原生 Freeze/Verify/Package 已通过，但 arm64 App/真实 Agent UAT 以及 Apple Developer ID 签名公证仍未完成。x86_64 非开发者 UAT 已 **PASS**。
 
+Phase 2 已经针对真实的外部社区 Profile 完成研究和流水线验证：5 个非官方 Web bundle 通过同一套 Freeze + Runtime Verify + Package，真实第三方失败和本地/workspace 不可移植情况均按事实记录，没有制造 PASS。由于还没有一个外部 Profile 完成独立干净机器 API Key + Live Agent UAT，Phase 2 当前为 **NO-GO**。详见 [Phase 2 设计](docs/phase-2-generalization.md)、[兼容矩阵](docs/phase-2-compatibility-matrix.md) 和 [最终复盘](PHASE_2_REVIEW.md)。
+
 产品需求文档：[PRD.md](PRD.md)  
 实现计划：[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
 
@@ -35,7 +37,7 @@ x86_64 打包验证于 2026-08-16 在 Intel 开发 Mac 上完成，覆盖了完�
 - 打包应用在受限 `PATH` 下启动，使用内嵌的 Node 运行时，在自身窗口内打开官方 Harness UI，不会跳转到 Safari 或 Chrome
 - 官方 Models 设置页面可编辑，`⌘V` / `Edit → Paste` 可粘贴 API Key
 - 环境：macOS 26.5.2，6 核 Intel Core i7，16 GB RAM，x86_64；Node v26.5.0；pnpm 11.12.0
-- 仓库检查：`pnpm typecheck` 通过；`pnpm test` 17/17 通过
+- 仓库检查：`pnpm typecheck` 通过；`pnpm test` 22/22 通过
 
 ### 实时 Agent 端到端 — PASS（x86_64）
 

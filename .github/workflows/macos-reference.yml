@@ -62,6 +62,11 @@ jobs:
         working-directory: deepseek-harness
         run: pnpm install --frozen-lockfile
 
+      - name: Load Reference package-size baseline
+        run: |
+          baseline=$(node -e "process.stdout.write(String(require('./docs/package-size-report.json').baseline.totalBytes))")
+          echo "DSH_STACK_SIZE_BASELINE_BYTES=$baseline" >> "$GITHUB_ENV"
+
       - name: Build official Harness packages
         working-directory: deepseek-harness
         run: pnpm run build
@@ -97,5 +102,6 @@ jobs:
             "dist/release/arm64/DSH-Stack-Reference-macos-arm64.dmg" \
             "dist/release/arm64/DSH-Stack-Reference-macos-arm64.dmg.sha256" \
             "dist/release/arm64/DSH-Stack-Reference-macos-arm64-verification.receipt.json" \
+            "dist/release/arm64/DSH-Stack-Reference-macos-arm64-package-size-report.json" \
             --clobber \
             --repo "$GITHUB_REPOSITORY"

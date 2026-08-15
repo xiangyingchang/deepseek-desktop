@@ -59,7 +59,7 @@ phase "Verify started"
 "${VERIFY_ARGS[@]}"
 phase "Verify completed"
 
-PACKAGE_ARGS=(pnpm dsh-stack package "$STACK_DIR" --harness "$HARNESS_ROOT" --arch "$ARCH" --output "$APP_PATH")
+PACKAGE_ARGS=(pnpm dsh-stack package "$STACK_DIR" --harness "$HARNESS_ROOT" --arch "$ARCH" --output "$APP_PATH" --size-report)
 if [[ -n "$NODE_RUNTIME" ]]; then PACKAGE_ARGS+=(--node-runtime "$NODE_RUNTIME"); fi
 if [[ -n "$SIGNING_IDENTITY" ]]; then PACKAGE_ARGS+=(--signing-identity "$SIGNING_IDENTITY" --hardened-runtime); fi
 phase "Package started"
@@ -86,6 +86,7 @@ echo "Architecture: $ARCH"
 echo "App: $APP_PATH"
 echo "DMG: $DMG_PATH"
 echo "Receipt: $OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH-verification.receipt.json"
+echo "Size report: $OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH-package-size-report.json"
 echo "SHA256: $OUTPUT_DIR/$(basename "$DMG_PATH").sha256"
 if [[ -n "$SIGNING_IDENTITY" ]]; then
   echo "Signing: $SIGNING_IDENTITY + Hardened Runtime"

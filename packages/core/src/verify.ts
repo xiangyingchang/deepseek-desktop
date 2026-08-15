@@ -186,7 +186,12 @@ export async function verifyStack(options: {
     addStage(stages, 'BOOT', 'passed', `Official Harness Web UI responded at ${harnessProcess.url}.`)
     checks.push(check('Official Harness Web UI responds', 'runtime.health', 'CORE_TEST', 'pass', harnessProcess.url))
     addStage(stages, 'ACTIVATE', 'passed', 'The official Web profile reached its serving state.')
-    checks.push(check('Profile generated root', 'profile.generated-root', 'ACTIVATE', await stat(join(environment.profileDir, 'cordis.yml')).then(() => 'pass' as const).catch(() => 'fail' as const), 'The official CLI owns cordis.yml generation.'))
+    const generatedRoot = await stat(join(environment.profileDir, 'cordis.yml')).then(() => true).catch(() => false)
+    checks.push(check('Profile generated root', 'profile.generated-root', 'ACTIVATE', generatedRoot ? 'pass' : 'fail', 'The official CLI owns cordis.yml generation.'))
+    if (!generatedRoot) throw new DshStackError(diagnostic('PROFILE_MATERIALIZATION_FAILED', 'ACTIVATE', 'The official Harness did not generate cordis.yml for the exact materialized Profile', {
+      component: environment.profileDir,
+      action: 'Verify the exact Profile name and inspect the official Harness activation output; do not accept a default-profile fallback.',
+    }))
     addStage(stages, 'CORE_TEST', 'started')
     checks.push(check('No LLM request required', 'runtime.no-live-llm', 'CORE_TEST', 'pass', 'Core verification used localhost UI health only.'))
     addStage(stages, 'CORE_TEST', 'passed')

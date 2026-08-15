@@ -16,6 +16,14 @@ non-portable-local-link
 git-floating-reference
 missing-secret
 unsupported-platform
+
+Phase 2 real-world fixtures:
+
+phase2-config-only-bundle
+phase2-real-lock-proof-activation
+phase2-unbuilt-bundle-entry
+phase2-workspace-link
+phase2-generated-data-exclusion
 tampered-stack
 ```
 

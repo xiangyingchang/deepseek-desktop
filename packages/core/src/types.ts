@@ -109,6 +109,10 @@ export interface BundleInspection {
   packageDir?: string
   packageVersion?: string
   patchPath?: string
+  patchReferences?: string[]
+  entryPath?: string
+  entryExists?: boolean
+  lifecycleScripts?: string[]
   resolved: boolean
   hasBundleDeclaration: boolean
 }
@@ -126,6 +130,7 @@ export interface ProfileInspection {
   excludedEntries: string[]
   missingExpectedInputs: string[]
   bundles: BundleInspection[]
+  danglingReferences?: string[]
   profileNodeModulesPresent: boolean
   fallbackNodeModulesPresent: boolean
 }

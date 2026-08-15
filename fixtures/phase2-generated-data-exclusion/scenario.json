@@ -1,0 +1,9 @@
+{
+  "kind": "phase2-generated-data-exclusion",
+  "expected": "PASS",
+  "assertions": [
+    "node_modules, .git, cache, coverage, dist, build, sessions, logs, tmp, and .dsh directories are not Profile inputs",
+    "credentials.yaml and .credentials.yaml are not copied into a Stack",
+    "secret values in remaining inputs still fail closed"
+  ]
+}

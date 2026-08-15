@@ -1,0 +1,12 @@
+{
+  "kind": "phase2-real-lock-proof-activation",
+  "source": "https://github.com/dongsheng123132/dsh-profile-lock-proof",
+  "commit": "f2074dcf7af62d0e4b922a19fa8de0aed6dd65f9",
+  "profile": "web",
+  "expected": "FAIL",
+  "failureStage": "BOOT",
+  "diagnostic": "HARNESS_BOOT_FAILED",
+  "classification": "third-party plugin activation failure",
+  "observedCause": "bundle entry reads tools without declaring the required Cordis injection",
+  "policy": "preserve the third-party failure; do not add a Profile-specific patch"
+}

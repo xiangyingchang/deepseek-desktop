@@ -16,6 +16,8 @@ The core reproducibility path is implemented and has a real x86_64 single-machin
 
 The public `v0.1.0-reference-v10` release is a **Reference / RC pre-release**, not Stable. Native arm64 Freeze/Verify/Package now passes, but arm64 App/Live Agent UAT and Developer ID signing/notarization remain open. x86_64 clean-machine UAT is **PASS**.
 
+Phase 2 has now been exercised against real external community Profiles. Five non-official Web bundles reached Freeze + Runtime Verify + Package through the same generic pipeline; real third-party failures and local/workspace unsupported cases are recorded without false PASS. Phase 2 remains **NO-GO** until one external packaged Profile completes independent clean-machine API-key and Live Agent UAT. See [`docs/phase-2-generalization.md`](docs/phase-2-generalization.md), [`docs/phase-2-compatibility-matrix.md`](docs/phase-2-compatibility-matrix.md), and [`PHASE_2_REVIEW.md`](PHASE_2_REVIEW.md).
+
 ## Validation status
 
 ### Packaging E2E — PASS (x86_64)
@@ -33,7 +35,7 @@ Evidence and environment:
 - The packaged app launched with a restricted runtime `PATH`, used the embedded Node/runtime closure, and opened the official Harness UI inside the app window without handing off to Safari or Chrome.
 - The official Models form was editable after startup, and the Native Shell accepted `⌘V` / `Edit → Paste` into the official API-key field.
 - Environment: macOS 26.5.2 (build 25F84), 6-core Intel Core i7, 16 GB RAM, x86_64; Node v26.5.0; pnpm 11.12.0; DeepSeek Harness `0.1.0-rc.5` at commit `47f943859bef60e4160492346772ded9b24f765a`.
-- Repository checks: `pnpm typecheck` passed; `pnpm test` passed with 17/17 tests; `scripts/build-macos-reference.sh` passed `bash -n`.
+- Repository checks: `pnpm typecheck` passed; `pnpm test` passed with 22/22 tests; `scripts/build-macos-reference.sh` passed `bash -n`.
 
 ### Live Agent E2E — PASS (x86_64)
 
@@ -109,6 +111,8 @@ Build the generic macOS Reference Client after the Stack has a Runtime PASS rece
 ```sh
 pnpm dsh-stack package examples/reference --harness ../deepseek-harness
 ```
+
+Add `--size-report` to write a machine-readable closure report beside the App. It separates Native Shell, embedded Node, official Harness runtime, Profile, Profile dependencies, and other App contents; it does not add other Profiles to the artifact.
 
 This produces an ad-hoc signed `.app` containing an embedded Node runtime, the deployed official Harness closure, the frozen Profile, and a generic AppKit/WebKit Native Shell that hosts the official Web UI in its own window. It does not hand the URL to Safari or another default browser, and it does not inject API keys into the Harness environment: the official credentials provider owns the editable credential store. Apple Developer signing/notarization remain the primary release gate; see [`docs/reference-distribution-uat.md`](docs/reference-distribution-uat.md).
 

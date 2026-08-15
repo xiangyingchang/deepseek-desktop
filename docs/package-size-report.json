@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-08-16 Asia/Shanghai",
+  "baseline": {
+    "profile": "examples/reference",
+    "platform": "darwin x64",
+    "totalBytes": 395230165,
+    "warningThreshold": 0.1
+  },
+  "observations": [
+    {"case": "vanilla-reference", "profile": "web", "totalBytes": 395230165, "profileDependencyBytes": 0},
+    {"case": "dsh-plugin-development", "profile": "web", "totalBytes": 395297393, "profileDependencyBytes": 54022},
+    {"case": "dsh-plugin-guide", "profile": "web", "totalBytes": 399472879, "profileDependencyBytes": 4091155},
+    {"case": "dsh-netcafe", "profile": "web", "totalBytes": 395248122, "profileDependencyBytes": 13641},
+    {"case": "dsh-bundle-vision", "profile": "web", "totalBytes": 395259146, "profileDependencyBytes": 22235}
+  ],
+  "conclusion": "Adding external Profile cases does not add their closure to the Vanilla App; each observed App carries only its own Profile dependency closure."
+}

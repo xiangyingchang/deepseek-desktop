@@ -1,0 +1,13 @@
+{
+  "kind": "phase2-config-only-bundle",
+  "source": "https://github.com/mario03690/dsh-netcafe",
+  "commit": "6873f2dfd1f82b1443a640ac25b573d5edc81c36",
+  "profile": "web",
+  "expected": "PASS",
+  "assertions": [
+    "bundle package has no main entry",
+    "dsh.bundle.patch resolves an official @deepseek-ai package",
+    "inspection resolves the bundle by package.json directory",
+    "runtime verification uses the exact web Profile"
+  ]
+}

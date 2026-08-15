@@ -218,9 +218,15 @@ export async function startOfficialWeb(environment: MaterializedEnvironment, opt
 } = {}): Promise<HarnessProcess> {
   const host = options.host ?? environment.installation.web.defaultHost
   const port = options.port ?? await availablePort()
-  const args = environment.installation.mode === 'source'
-    ? [...environment.installation.cliCommand, 'web', '--host', host, '--port', String(port)]
-    : [...environment.installation.cliCommand, 'web', '--host', host, '--port', String(port)]
+  // The default `web` alias is only correct for the reference Profile. Every
+  // Verify/Run must boot the exact Profile captured by the Stack, otherwise a
+  // healthy default Web UI could mask an incompatible external Profile.
+  const args = [
+    ...environment.installation.cliCommand,
+    '--profile', environment.stack.harness.profile,
+    '--host', host,
+    '--port', String(port),
+  ]
   const output = { stdout: '', stderr: '' }
   const child = spawn(args[0]!, args.slice(1), {
     cwd: environment.installation.cliCwd,
