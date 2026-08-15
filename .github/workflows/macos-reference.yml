@@ -59,7 +59,7 @@ jobs:
         working-directory: deepseek-harness
         env:
           DSH_HOME: ${{ runner.temp }}/dsh-home
-        run: CI=true pnpm dsh --profile web --help >/dev/null
+        run: CI=true pnpm dsh web --dump-default-config >/dev/null
 
       - name: Freeze → Verify → Materialize → Package
         env:
