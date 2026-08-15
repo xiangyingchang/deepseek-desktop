@@ -55,6 +55,10 @@ jobs:
         working-directory: deepseek-harness
         run: pnpm install --frozen-lockfile
 
+      - name: Build official Harness packages
+        working-directory: deepseek-harness
+        run: pnpm run build
+
       - name: Initialize official web Profile
         working-directory: deepseek-harness
         env:
