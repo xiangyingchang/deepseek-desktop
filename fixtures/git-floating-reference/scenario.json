@@ -1,0 +1,5 @@
+{
+  "kind": "git-floating-reference",
+  "expected": "fail",
+  "errorCode": "NON_PORTABLE_DEPENDENCY"
+}

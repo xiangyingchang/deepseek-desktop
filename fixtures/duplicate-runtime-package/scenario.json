@@ -1,0 +1,5 @@
+{
+  "kind": "duplicate-runtime-package",
+  "expected": "fail",
+  "errorCode": "PROFILE_STATE_INCONSISTENT"
+}

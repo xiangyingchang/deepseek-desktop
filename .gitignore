@@ -1,0 +1,8 @@
+node_modules/
+dist/
+lib/
+coverage/
+.DS_Store
+artifacts/
+*.tsbuildinfo
+.dsh-stack-tmp/

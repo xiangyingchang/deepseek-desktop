@@ -1,0 +1,5 @@
+{
+  "kind": "healthy-profile",
+  "expected": "pass",
+  "source": "synthetic fixture; the official web profile is the real runtime reference"
+}

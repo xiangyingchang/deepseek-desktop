@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "sha256",
+  "files": {
+    "profile/cordis.patch.yml": "sha256-ef189a8c27db6d63930aa3046a3040482e952eafcb7487c644d508e8d461f027",
+    "profile/package.json": "sha256-210068ddb9ebc4cdf395ebb53020be6ccaaedb917e74dae16296d62394626398",
+    "profile/pnpm-workspace.yaml": "sha256-ae7c5b68e2f157528e62885804e69e88583897b775e03c86fcbe52feaf498aba",
+    "stack.yaml": "sha256-16384bdba47d039427cb9922b8931ec0ac62bd78dbd12c5f41995e26750e0ed6",
+    "tests/smoke.yaml": "sha256-f7c74363a8bc3118d81aa50a2ba1dc10ad9983421ac1aa32c82ebb7ee368b273"
+  },
+  "artifactHash": "sha256-5590c2a0cb00b3a71498440c7ea06b591fbf1b225c8d2def1f3340938db66456"
+}

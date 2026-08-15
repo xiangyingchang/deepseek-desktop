@@ -1,0 +1,5 @@
+{
+  "kind": "missing-secret",
+  "expected": "fail",
+  "errorCode": "SECRET_DETECTED"
+}

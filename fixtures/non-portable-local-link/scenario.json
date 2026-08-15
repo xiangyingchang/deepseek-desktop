@@ -1,0 +1,5 @@
+{
+  "kind": "non-portable-local-link",
+  "expected": "fail",
+  "errorCode": "NON_PORTABLE_DEPENDENCY"
+}

@@ -1,0 +1,5 @@
+{
+  "kind": "plugin-activation-failure",
+  "expected": "fail",
+  "errorCode": "PLUGIN_ACTIVATION_FAILED"
+}

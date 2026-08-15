@@ -1,0 +1,5 @@
+{
+  "kind": "tampered-stack",
+  "expected": "fail",
+  "errorCode": "STACK_INTEGRITY_ERROR"
+}

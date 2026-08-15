@@ -1,0 +1,8 @@
+mode: runtime
+tests:
+  - name: official Harness Web UI responds
+    type: runtime.health
+  - name: generated Profile root is materialized
+    type: profile.generated-root
+  - name: no LLM request is required
+    type: runtime.no-live-llm

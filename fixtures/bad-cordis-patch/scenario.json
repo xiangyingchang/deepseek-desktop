@@ -1,0 +1,5 @@
+{
+  "kind": "bad-cordis-patch",
+  "expected": "fail",
+  "errorCode": "CORDIS_CONFIGURATION_ERROR"
+}

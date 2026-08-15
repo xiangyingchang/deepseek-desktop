@@ -1,0 +1,35 @@
+schemaVersion: 1
+id: dsh-web
+name: DeepSeek Harness web Profile
+version: 0.1.0
+description: A reproducible DeepSeek Harness Profile captured by DSH Stack.
+harness:
+  version: 0.1.0-rc.5
+  adapter: deepseek-harness-source-v1
+  profile: web
+profile:
+  source: ./profile
+  inputs:
+    - cordis.patch.yml
+    - package.json
+    - pnpm-workspace.yaml
+environment:
+  node:
+    required: ^22.19.0 || >=24.0.0
+    observed: v26.5.0
+  pnpm:
+    required: pnpm@11.7.0
+    observed: 11.12.0
+  platform:
+    os:
+      - darwin
+    arch:
+      - x64
+requirements:
+  secrets:
+    - DEEPSEEK_API_KEY
+source:
+  consistency: verified
+verification:
+  tests:
+    - ./tests/smoke.yaml

@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "stack": {
+    "id": "dsh-web",
+    "version": "0.1.0",
+    "integrity": "sha256-5590c2a0cb00b3a71498440c7ea06b591fbf1b225c8d2def1f3340938db66456"
+  },
+  "verification": {
+    "level": "runtime",
+    "result": "pass",
+    "startedAt": "2026-08-15T09:54:47.860Z",
+    "finishedAt": "2026-08-15T09:55:02.311Z",
+    "cacheUsed": false
+  },
+  "environment": {
+    "os": "darwin",
+    "arch": "x64",
+    "node": "v26.5.0",
+    "pnpm": "11.12.0",
+    "clean": true
+  },
+  "harness": {
+    "version": "0.1.0-rc.5",
+    "mode": "source",
+    "commit": "47f943859bef60e4160492346772ded9b24f765a"
+  },
+  "profile": {
+    "name": "web",
+    "generatedFiles": [
+      "cordis.yml"
+    ]
+  },
+  "thirdPartyCodeExecuted": true,
+  "externalServices": {
+    "llm": false,
+    "network": [
+      "localhost Web UI readiness"
+    ]
+  },
+  "stages": [
+    {
+      "stage": "STATIC_VERIFY",
+      "status": "started",
+      "at": "2026-08-15T09:54:47.861Z"
+    },
+    {
+      "stage": "STATIC_VERIFY",
+      "status": "passed",
+      "at": "2026-08-15T09:54:48.569Z"
+    },
+    {
+      "stage": "MATERIALIZE",
+      "status": "started",
+      "at": "2026-08-15T09:54:48.569Z"
+    },
+    {
+      "stage": "MATERIALIZE",
+      "status": "passed",
+      "at": "2026-08-15T09:54:48.572Z",
+      "message": "Profile materialized; no external Profile dependency install was required."
+    },
+    {
+      "stage": "BOOT",
+      "status": "started",
+      "at": "2026-08-15T09:54:48.572Z"
+    },
+    {
+      "stage": "BOOT",
+      "status": "passed",
+      "at": "2026-08-15T09:55:02.186Z",
+      "message": "Official Harness Web UI responded at http://127.0.0.1:49709."
+    },
+    {
+      "stage": "ACTIVATE",
+      "status": "passed",
+      "at": "2026-08-15T09:55:02.186Z",
+      "message": "The official Web profile reached its serving state."
+    },
+    {
+      "stage": "CORE_TEST",
+      "status": "started",
+      "at": "2026-08-15T09:55:02.186Z"
+    },
+    {
+      "stage": "CORE_TEST",
+      "status": "passed",
+      "at": "2026-08-15T09:55:02.186Z"
+    }
+  ],
+  "checks": [
+    {
+      "name": "Stack schema",
+      "type": "static.schema",
+      "stage": "STATIC_VERIFY",
+      "result": "pass",
+      "message": "stack.yaml schemaVersion 1 is valid."
+    },
+    {
+      "name": "Artifact integrity",
+      "type": "static.integrity",
+      "stage": "STATIC_VERIFY",
+      "result": "pass",
+      "message": "All hashed Stack files match."
+    },
+    {
+      "name": "Harness version",
+      "type": "static.harness-version",
+      "stage": "STATIC_VERIFY",
+      "result": "pass",
+      "message": "Harness 0.1.0-rc.5 matches the Stack pin."
+    },
+    {
+      "name": "Platform",
+      "type": "static.platform",
+      "stage": "STATIC_VERIFY",
+      "result": "pass",
+      "message": "Platform darwin x64 is declared."
+    },
+    {
+      "name": "Official Harness Web UI responds",
+      "type": "runtime.health",
+      "stage": "CORE_TEST",
+      "result": "pass",
+      "message": "http://127.0.0.1:49709"
+    },
+    {
+      "name": "Profile generated root",
+      "type": "profile.generated-root",
+      "stage": "ACTIVATE",
+      "result": "pass",
+      "message": "The official CLI owns cordis.yml generation."
+    },
+    {
+      "name": "No LLM request required",
+      "type": "runtime.no-live-llm",
+      "stage": "CORE_TEST",
+      "result": "pass",
+      "message": "Core verification used localhost UI health only."
+    }
+  ],
+  "diagnostics": []
+}

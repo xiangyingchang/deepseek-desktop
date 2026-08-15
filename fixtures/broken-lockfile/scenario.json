@@ -1,0 +1,5 @@
+{
+  "kind": "broken-lockfile",
+  "expected": "fail",
+  "errorCode": "LOCKFILE_MISMATCH"
+}
