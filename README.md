@@ -12,6 +12,29 @@ inspect → preflight → freeze → verify → run --clean
 
 Milestone 0 is under implementation. The authoritative product requirements are in [`PRD.md`](PRD.md), and the executable mapping is in [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
+## Validation status
+
+### Single-machine E2E — PASS
+
+The developer-run single-machine E2E checkpoint completed on **2026-08-15**. It covers the standard Stack path and the packaged Native Shell integration on one Mac:
+
+```text
+official Profile → Freeze → Verify / Prove → Reproduce → Package → Native Shell → official Harness Web UI
+```
+
+Evidence and environment:
+
+- `examples/reference/verification.receipt.json` is a Runtime `PASS` with `cacheUsed: false`, official Web UI readiness, and localhost-only health evidence.
+- `DSH Stack Reference v10.app` launched as an ad-hoc signed x86_64 Mach-O app with a restricted runtime `PATH`; it used the embedded Node/runtime closure and opened the official Harness UI inside the app window without handing off to Safari or Chrome.
+- The official Models form was editable after startup, and the Native Shell accepted `⌘V` / `Edit → Paste` into the official API-key field. The paste regression used a synthetic clipboard value and did not send a live LLM request.
+- Environment: macOS 26.5.2 (build 25F84), 6-core Intel Core i7, 16 GB RAM, x86_64; Node v26.5.0; pnpm 11.12.0; DeepSeek Harness `0.1.0-rc.5` at commit `47f943859bef60e4160492346772ded9b24f765a`.
+- Repository checks: `pnpm typecheck` passed; `pnpm test` passed with 15/15 tests.
+
+This PASS is limited to the single-machine pipeline/package/UI integration checkpoint. The following release gates remain **PENDING**:
+
+- Non-developer clean-machine UAT: Download → Install → Open → configure a real API key → complete a real Agent Session without Terminal or developer intervention.
+- Apple Developer signing and notarization.
+
 The current reference Harness checkout is discovered through `--harness` or `DSH_HARNESS_ROOT`. The repository does not assume a globally installed `dsh` command.
 
 ## Development

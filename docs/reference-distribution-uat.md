@@ -17,6 +17,26 @@ This is a manual black-box test. The tester must not be the implementer and must
 - Do not run a Terminal command during the test.
 - Have a valid DeepSeek API key available to enter in the official Harness Models settings page.
 
+## Recorded validation status
+
+### Single-machine E2E — PASS
+
+This is a developer-run integration checkpoint, recorded separately from the non-developer clean-machine UAT below.
+
+| Field | Recorded result |
+|---|---|
+| Test date | 2026-08-15 |
+| Environment | macOS 26.5.2 (build 25F84), 6-core Intel Core i7, 16 GB RAM, x86_64 |
+| Toolchain | Node v26.5.0; pnpm 11.12.0 |
+| Harness | `0.1.0-rc.5`, commit `47f943859bef60e4160492346772ded9b24f765a` |
+| Artifact | `DSH Stack Reference v10.app`, ad-hoc signed x86_64 Mach-O app |
+| Scope | Freeze → Verify / Prove → Reproduce → Package → Native Shell → official Harness Web UI |
+| Result | **PASS** |
+
+Observed evidence: the Runtime `verification.receipt.json` was `PASS` with `cacheUsed: false`; the packaged app launched with a restricted runtime `PATH`, embedded its Node/runtime closure, opened the official Harness UI inside its own window, and did not hand off to Safari/Chrome. The official Models field was editable, and a synthetic clipboard value was accepted through `⌘V` / `Edit → Paste`. `pnpm typecheck` passed and `pnpm test` passed with 15/15 tests.
+
+This PASS does not represent the final non-developer UAT or a live-LLM acceptance. Those remain **PENDING**, as do Apple Developer signing and notarization.
+
 ## Test steps
 
 1. Double-click the installed `DSH Stack Reference.app`.
@@ -32,18 +52,19 @@ This is a manual black-box test. The tester must not be the implementer and must
 
 | Check | Result | Evidence |
 |---|---|---|
-| Download/install without developer steps | TODO | |
-| No Node install required | TODO | |
-| No pnpm install required | TODO | |
-| No DSH CLI install required | TODO | |
-| No manual plugin/Profile edit | TODO | |
-| Official Harness UI opened | TODO | |
-| API key field editable after startup | TODO | |
-| API key can be pasted with `⌘V` / `Edit → Paste` | TODO | |
-| API key stored by official credentials provider | TODO | |
-| One real Agent turn completed | TODO | |
-| Invalid key can be replaced without restart | TODO | |
-| Restart succeeded | TODO | |
-| No developer intervention | TODO | |
+| Download/install without developer steps | PENDING | Non-developer clean-machine UAT not yet performed |
+| No Node install required | PASS (single-machine) | Restricted `PATH`; packaged app used embedded Node; clean-machine UAT remains pending |
+| No pnpm install required | PASS (single-machine) | Packaged app launch did not require pnpm; clean-machine UAT remains pending |
+| No DSH CLI install required | PASS (single-machine) | Packaged app launch did not require a system `dsh` CLI; clean-machine UAT remains pending |
+| No manual plugin/Profile edit | PASS (single-machine) | Frozen Profile was embedded by the standard package path |
+| Official Harness UI opened | PASS (single-machine) | Official UI rendered inside the Native Shell; no browser handoff |
+| API key field editable after startup | PASS (single-machine) | Official Models editor was writable |
+| API key can be pasted with `⌘V` / `Edit → Paste` | PASS (single-machine) | Synthetic clipboard regression succeeded in v10 |
+| API key stored by official credentials provider | PENDING | Real-key save not recorded in this checkpoint |
+| One real Agent turn completed | PENDING | Live LLM acceptance remains pending |
+| Invalid key can be replaced without restart | PENDING | Requires real-key UAT |
+| Restart succeeded | PENDING | Requires clean UAT with persisted managed credential |
+| No developer intervention | PENDING | Non-developer clean-machine UAT remains pending |
+| Apple Developer signing/notarization | PENDING | Current artifact is ad-hoc signed |
 
 Any terminal command, manual Profile edit, lockfile repair, PATH repair, or remote developer intervention is a UAT FAIL and must be recorded here with the exact symptom.
