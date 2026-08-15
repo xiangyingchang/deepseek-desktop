@@ -2,12 +2,18 @@ name: macOS Reference Builds
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_reference_release:
+        description: Upload the generated arm64 assets to the existing Reference Release
+        required: false
+        default: false
+        type: boolean
   push:
     tags:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -81,3 +87,15 @@ jobs:
           name: dsh-stack-reference-macos-${{ matrix.arch }}
           path: dist/release/${{ matrix.arch }}
           if-no-files-found: error
+
+      - name: Upload arm64 assets to Reference Release
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_reference_release == true && matrix.arch == 'arm64' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload v0.1.0-reference-v10 \
+            "dist/release/arm64/DSH-Stack-Reference-macos-arm64.dmg" \
+            "dist/release/arm64/DSH-Stack-Reference-macos-arm64.dmg.sha256" \
+            "dist/release/arm64/DSH-Stack-Reference-macos-arm64-verification.receipt.json" \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"
