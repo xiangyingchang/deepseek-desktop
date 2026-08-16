@@ -14,6 +14,7 @@ OUTPUT_DIR="${DSH_STACK_OUTPUT_DIR:-$ROOT_DIR/dist/release/$ARCH}"
 SIGNING_IDENTITY="${DSH_STACK_CODESIGN_IDENTITY:-}"
 NODE_RUNTIME="${DSH_STACK_NODE_RUNTIME:-}"
 NOTARY_PROFILE="${DSH_STACK_NOTARY_PROFILE:-}"
+APP_VERSION="${DSH_STACK_APP_VERSION:-}"
 
 phase() {
   echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $1"
@@ -66,6 +67,7 @@ phase "Verify completed"
 
 PACKAGE_ARGS=(pnpm dsh-stack package "$STACK_DIR" --harness "$HARNESS_ROOT" --arch "$ARCH" --output "$APP_PATH" --size-report)
 if [[ -n "$NODE_RUNTIME" ]]; then PACKAGE_ARGS+=(--node-runtime "$NODE_RUNTIME"); fi
+if [[ -n "$APP_VERSION" ]]; then PACKAGE_ARGS+=(--app-version "$APP_VERSION"); fi
 if [[ -n "$SIGNING_IDENTITY" ]]; then PACKAGE_ARGS+=(--signing-identity "$SIGNING_IDENTITY" --hardened-runtime); fi
 phase "Package started"
 "${PACKAGE_ARGS[@]}"

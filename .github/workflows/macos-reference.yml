@@ -2,12 +2,6 @@ name: macOS Reference Builds
 
 on:
   workflow_dispatch:
-    inputs:
-      publish_reference_release:
-        description: Upload the generated arm64 assets to the existing Reference Release
-        required: false
-        default: false
-        type: boolean
   push:
     tags:
       - 'v*'
@@ -84,7 +78,11 @@ jobs:
           DSH_STACK_ARCH: ${{ matrix.arch }}
           DSH_STACK_OUTPUT_DIR: ${{ github.workspace }}/dist/release/${{ matrix.arch }}
           DSH_STACK_TRACE: '1'
-        run: bash scripts/build-macos-reference.sh
+        run: |
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME:-}" == v* ]]; then
+            export DSH_STACK_APP_VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          bash scripts/build-macos-reference.sh
 
       - name: Upload unsigned/ad-hoc validation artifacts
         uses: actions/upload-artifact@v4
@@ -93,15 +91,31 @@ jobs:
           path: dist/release/${{ matrix.arch }}
           if-no-files-found: error
 
-      - name: Upload arm64 assets to Reference Release
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_reference_release == true && matrix.arch == 'arm64' }}
+
+  publish_reference_release:
+    name: Publish macOS Reference Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download architecture artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: deepseek-desktop-unofficial-macos-*
+          path: dist/release
+
+      - name: Create prerelease and upload verified distribution assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload v0.1.0-reference-v10 \
-            "dist/release/arm64/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg" \
-            "dist/release/arm64/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg.sha256" \
-            "dist/release/arm64/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64-verification.receipt.json" \
-            "dist/release/arm64/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64-package-size-report.json" \
-            --clobber \
-            --repo "$GITHUB_REPOSITORY"
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "DeepSeek Desktop ${tag#v} (Unofficial Reference RC)" \
+            --prerelease \
+            --notes "DeepSeek Desktop ${tag#v} is an unofficial Reference / RC distribution powered by DSH Stack. Download the DMG matching your Mac: Intel x86_64 or Apple Silicon arm64. These artifacts are ad-hoc signed until Apple Developer signing and notarization are available."
+
+          while IFS= read -r -d '' asset; do
+            gh release upload "$tag" "$asset" --clobber --repo "$GITHUB_REPOSITORY"
+          done < <(find dist/release -type f \( -name '*.dmg' -o -name '*.dmg.sha256' -o -name '*verification.receipt.json' -o -name '*package-size-report.json' \) -print0 | sort -z)
