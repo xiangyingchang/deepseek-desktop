@@ -4,7 +4,7 @@
 
 This is a manual black-box test. The tester must not be the implementer and must use a Mac without the frozen Profile preconfigured.
 
-The underlying technical project and CLI remain `DSH Stack` / `dsh-stack`. The current public `v0.1.0-reference-v10` assets use the `DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64` and `DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64` naming; the historical asset names below are retained only as evidence labels.
+The underlying technical project and CLI remain `DSH Stack` / `dsh-stack`. The current public `v0.2.0-rc.8` assets use the `DeepSeek-Desktop-Unofficial-macos-Intel-x86_64` and `DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64` naming. The historical `v0.1.0-reference-v10` asset names below are retained only as evidence labels.
 
 ## Artifact under test
 
@@ -75,6 +75,17 @@ GitHub Actions run `31899143451` completed the standard packaging path on a nati
 
 This is a native packaging result. It does not claim that an arm64 App was manually launched or that a real arm64 Agent turn was completed.
 
+### Current Reference RC asset validation — v0.2.0-rc.8
+
+The current public RC was built from `main` commit `4835d28c744b494953e1ebdeea8dc57b90b5bf9e` and published at [`v0.2.0-rc.8`](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.2.0-rc.8).
+
+| Architecture | Evidence | Result |
+|---|---|---|
+| x86_64 | Native local Freeze → Verify → Package; ad-hoc signature; DMG verification; `DSH_STACK_READY` health check; `appVersion=0.2.0-rc.8`; stable `storageId` | **PASS** |
+| arm64 | Native GitHub Actions job `95205197411`; Freeze → Verify → Package; DMG verification; mounted App signature and architecture check; `appVersion=0.2.0-rc.8`; stable `storageId` | **PASS** |
+
+This RC-specific record does not claim a new arm64 Live Agent session or clean-machine UAT. Those remain pending. The GitHub run's x86_64 job was cancelled after native Intel runner capacity remained queued; the published Intel asset is the independently verified native local build above.
+
 ### Clean-machine UAT — PASS (x86_64)
 
 On **2026-08-16 Asia/Shanghai**, a second non-developer Intel Mac completed the full black-box path without Terminal or developer intervention:
@@ -91,7 +102,7 @@ No Terminal command, manual Profile edit, lockfile repair, or PATH repair was re
 
 ### Release readiness — Reference / RC, not Stable
 
-`v0.1.0-reference-v10` remains the first public Reference / RC pre-release. Native arm64 packaging is now PASS, but the Release must not be relabeled Stable until arm64 App/Live Agent UAT, Developer ID signing, Hardened Runtime, notarization, and stapling are complete.
+`v0.2.0-rc.8` is the current public Reference / RC pre-release; `v0.1.0-reference-v10` remains preserved as the first historical public Reference release. The current Release must not be relabeled Stable until arm64 App/Live Agent UAT, clean-machine UAT, Developer ID signing, Hardened Runtime, notarization, and stapling are complete.
 
 x86_64 clean-machine UAT is now **PASS** on a second non-developer Intel Mac. Apple Developer signing/notarization remain **PENDING**.
 

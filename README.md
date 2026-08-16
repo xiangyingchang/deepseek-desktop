@@ -12,12 +12,12 @@ DSH Stack does not reimplement the Harness runtime, plugin system, pnpm, depende
 
 ## Download
 
-Open the [current public Reference / RC Release](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.1.0-reference-v10) and download the DMG that matches your Mac:
+Open the [current public Reference / RC Release](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.2.0-rc.8) and download the DMG that matches your Mac:
 
 | Mac | Download | CPU | Current evidence |
 |---|---|---|---|
-| Intel Mac | [DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg) | x86_64 | Packaging, Live Agent, and clean-machine UAT: PASS |
-| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg) | arm64 | Native packaging: PASS; manual App and Live Agent UAT: pending |
+| Intel Mac | [DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.8/DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg) | x86_64 | Native Freeze → Verify → Package and App health check: PASS; Live Agent and clean-machine UAT: pending |
+| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.8/DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg) | arm64 | Native Freeze → Verify → Package and DMG/App integrity: PASS; manual App and Live Agent UAT: pending |
 
 The Release also contains matching SHA-256 files, verification receipts, and package-size reports. The public asset names explicitly include `Intel` or `Apple-Silicon`.
 
