@@ -14,10 +14,10 @@ DSH Stack 不重新实现 Harness 运行时、插件系统、pnpm、依赖解析
 
 | Mac 类型 | 下载 | 芯片架构 | 当前验证状态 |
 |---|---|---|---|
-| Intel Mac | [DSH-Stack-Reference-macos-x64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DSH-Stack-Reference-macos-x64.dmg) | x86_64 | 打包、Live Agent、非开发者 UAT：PASS |
-| Apple Silicon Mac | [DSH-Stack-Reference-macos-arm64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DSH-Stack-Reference-macos-arm64.dmg) | arm64 | 原生打包：PASS；实机 App 和 Live Agent UAT：待验证 |
+| Intel Mac | [DeepSeek-Desktop-Unofficial-macos-x86_64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macos-x86_64.dmg) | x86_64 | 打包、Live Agent、非开发者 UAT：PASS |
+| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macos-arm64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macos-arm64.dmg) | arm64 | 原生打包：PASS；实机 App 和 Live Agent UAT：待验证 |
 
-Release 页面同时提供对应的 SHA-256 文件和 verification receipt。当前公开资产仍使用历史名称 `DSH-Stack-Reference-*`；源码现在生成的新品牌 App 名称是 `DeepSeek Desktop (Unofficial)`，但新品牌产物还没有替换公开 Release 中的旧资产。
+Release 页面同时提供对应的 SHA-256 文件、verification receipt 和 package-size report。当前公开资产使用 `DeepSeek-Desktop-Unofficial-*` 名称。
 
 当前版本是 **Reference / RC 预发布版**，不是 Stable。公开 App 目前是 ad-hoc 签名且未公证，第一次打开时 macOS 可能显示安全提示。
 
