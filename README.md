@@ -2,123 +2,122 @@
 
 [中文版](README.zh-CN.md) | English
 
-DeepSeek Desktop (Unofficial) is the public community client produced by DSH Stack, the project's reproducibility and distribution layer for an existing DeepSeek Harness Profile.
+> An unofficial community desktop client for the official DeepSeek Harness. It is not an official DeepSeek product.
 
-> This is an unofficial community client. It is not an official DeepSeek product.
+DeepSeek Desktop packages an existing DeepSeek Harness Profile as a self-contained macOS app. The technical project and CLI are called **DSH Stack** / `dsh-stack`.
 
-The project deliberately delegates composition, plugin loading, dependency resolution, runtime boot, Agent Loop, and the Web UI to the official Harness. Its first proof path is:
+DSH Stack does not reimplement the Harness runtime, plugin system, pnpm, dependency resolution, Agent Loop, or official Web UI. It freezes, verifies, reproduces, and packages the official Harness environment.
 
-```text
-inspect → preflight → freeze → verify → run --clean
-```
+## Download
+
+Open the [current public Reference / RC Release](https://github.com/xiangyingchang/dsh-stack/releases/tag/v0.1.0-reference-v10) and download the DMG that matches your Mac:
+
+| Mac | Download | CPU | Current evidence |
+|---|---|---|---|
+| Intel Mac | [DSH-Stack-Reference-macos-x64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DSH-Stack-Reference-macos-x64.dmg) | x86_64 | Packaging, Live Agent, and clean-machine UAT: PASS |
+| Apple Silicon Mac | [DSH-Stack-Reference-macos-arm64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DSH-Stack-Reference-macos-arm64.dmg) | arm64 | Native packaging: PASS; manual App and Live Agent UAT: pending |
+
+The Release also contains matching SHA-256 files and verification receipts. The current public assets still use the historical `DSH-Stack-Reference-*` name; the source tree now builds the branded `DeepSeek Desktop (Unofficial)` app, but that rebuild has not yet replaced the public Release assets.
+
+This is a **Reference / RC pre-release**, not Stable. Current public apps are ad-hoc signed and not notarized, so macOS may show an approval warning on first launch.
+
+## Install and use
+
+You do not need Node, pnpm, the `dsh-stack` CLI, a pre-installed Profile, or a Terminal.
+
+1. Download the DMG for your Mac.
+2. Open the DMG and drag the app to `Applications`.
+3. Double-click the app. If macOS shows a security warning, Control-click the app, choose **Open**, and confirm.
+4. Open the official Harness **Models** settings page.
+5. Edit the **DeepSeek** provider, enter your API key, and save it. `⌘V` / **Edit → Paste** is supported.
+6. Create a Web session and send a message.
+7. If the key is rejected, return to the same Models page, replace it, save, and retry. Restarting is not required.
+
+The API key is stored by the official Harness credentials provider. DSH Stack does not print or embed the key in the app.
+
+## Which file should I download?
+
+On your Mac, open **Apple menu → About This Mac**:
+
+- If it says **Processor: Intel**, download the x64 DMG.
+- If it says **Chip: Apple M1/M2/M3/M4...**, download the arm64 DMG.
+
+Do not download the source ZIP unless you are a developer. It is not the normal installation path.
 
 ## Current status
 
-The core reproducibility path is implemented and has a real x86_64 single-machine proof. The authoritative product requirements are in [`PRD.md`](PRD.md), and the executable mapping is in [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
+| Area | Status |
+|---|---|
+| x86_64 Freeze → Verify → Package → DMG | PASS |
+| x86_64 App launch and official Harness UI | PASS |
+| x86_64 real Agent session and restart | PASS |
+| x86_64 clean-machine UAT | PASS for the current Reference artifact |
+| arm64 native Freeze → Verify → Package → DMG | PASS in CI |
+| arm64 App launch, Live Agent, and clean-machine UAT | Pending Apple Silicon validation |
+| Developer ID signing, Hardened Runtime, notarization, stapling | Pending external Apple credentials |
+| Stable `v0.1.0` | Not released |
 
-The existing public `v0.1.0-reference-v10` release is a **Reference / RC pre-release**, not Stable. This checkout now builds the public-facing app as **DeepSeek Desktop (Unofficial)**; the branded rebuild below is local and has not yet replaced the existing GitHub Release assets. Native arm64 Freeze/Verify/Package remains available in the existing pipeline, but arm64 App/Live Agent UAT and Developer ID signing/notarization remain open. x86_64 clean-machine UAT is **PASS** for the earlier Reference artifact.
+## For developers
 
-Phase 2 has now been exercised against real external community Profiles. Five non-official Web bundles reached Freeze + Runtime Verify + Package through the same generic pipeline; real third-party failures and local/workspace unsupported cases are recorded without false PASS. Phase 2 remains **NO-GO** until one external packaged Profile completes independent clean-machine API-key and Live Agent UAT. See [`docs/phase-2-generalization.md`](docs/phase-2-generalization.md), [`docs/phase-2-compatibility-matrix.md`](docs/phase-2-compatibility-matrix.md), and [`PHASE_2_REVIEW.md`](PHASE_2_REVIEW.md).
-
-## Validation status
-
-### Packaging E2E — PASS (x86_64)
-
-The x86_64 packaging checkpoint completed on **2026-08-16 Asia/Shanghai** on the Intel development Mac. It covers the standard Stack path and the packaged Native Shell integration:
-
-```text
-official Profile → Freeze → Verify / Prove → Materialize → Package → DMG → Native Shell → official Harness Web UI
-```
-
-Evidence and environment:
-
-- The fresh receipt generated by the branding rebuild is a Runtime `PASS` (`2026-08-16T03:34:15.318Z` → `2026-08-16T03:34:37.483Z`, `cacheUsed: false`) with official Web UI readiness and localhost-only health evidence.
-- `DeepSeek Desktop (Unofficial).app` and `DeepSeek-Desktop-Unofficial-macos-x86_64.dmg` were generated from that fresh Stack; `hdiutil verify`, SHA-256 verification, and ad-hoc signature verification passed. The app executable is x86_64 Mach-O and the A1-Minimal-D `DeepSeekDesktop.icns` is embedded in the bundle.
-- The packaged app launched with a restricted runtime `PATH`, used the embedded Node/runtime closure, and opened the official Harness UI inside the app window without handing off to Safari or Chrome.
-- The official Models form was editable after startup, and the Native Shell accepted `⌘V` / `Edit → Paste` into the official API-key field.
-- Environment: macOS 26.5.2 (build 25F84), 6-core Intel Core i7, 16 GB RAM, x86_64; Node v26.5.0; pnpm 11.12.0; DeepSeek Harness `0.1.0-rc.5` at commit `47f943859bef60e4160492346772ded9b24f765a`.
-- Repository checks: `pnpm typecheck` passed; `pnpm test` passed with 22/22 tests; `scripts/build-macos-reference.sh` passed `bash -n`.
-
-### Live Agent E2E — PASS (x86_64)
-
-On **2026-08-16 Asia/Shanghai**, the current v10 Native Shell and the freshly generated x86_64 release App used the persisted official credential provider and completed real DeepSeek turns. The test prompts were deliberately no-op prompts; no key value was read or printed.
-
-- v10 UI returned `E2E_PASS`; session metadata recorded provider `deepseek-official`, model `deepseek-v4-flash`, and `turn/end` reason `completed`.
-- After terminating and relaunching v10, the UI loaded the saved model and returned `RESTART_PASS` with another completed turn.
-- The fresh x86_64 release App returned `RELEASE_X64_PASS` with another completed turn.
-- An earlier invalid-key session remains recorded as `401 AUTH` failure evidence; it is not counted as PASS.
-
-### Packaging E2E — PASS (arm64 native CI)
-
-On **2026-08-16 Asia/Shanghai**, GitHub Actions run `31899143451` completed the same standard path on a native `macos-14` arm64 runner:
-
-```text
-official Profile → Freeze → Verify / Prove → Materialize → Package → DMG
-```
-
-- Native runner architecture checks passed; the Runtime receipt is `PASS`, `cacheUsed: false`, and `environment.arch` is `arm64`.
-- The existing public arm64 asset still uses the historical `DSH-Stack-Reference-macos-arm64.dmg` name; a newly branded arm64 artifact has not been built or uploaded in this local run.
-- The DMG was created and verified by the same release script. This proves native arm64 packaging, not yet a manual arm64 App launch or real arm64 Agent turn.
-
-### Clean-machine UAT — PASS (x86_64)
-
-On **2026-08-16 Asia/Shanghai**, a second non-developer Intel Mac completed the full black-box path without Terminal or developer intervention. The app was downloaded from the release, installed, configured with a real API key (manually typed; `⌘V` paste also verified), completed a real Agent turn, and survived a quit-and-relaunch cycle with persisted credentials. No Node, pnpm, DSH CLI, or Terminal was needed.
-
-### Release readiness — RC / NOT STABLE
-
-- `v0.1.0-reference-v10`: existing public Reference / RC pre-release; preserved as the first public validation release. Its current assets predate the new DeepSeek Desktop (Unofficial) branding.
-- x86_64: local Packaging E2E, Live Agent E2E, and clean-machine UAT all PASS; current artifact is ad-hoc signed.
-- arm64: native CI Freeze/Verify/Package/DMG PASS and assets are published; native App launch, Live Agent E2E, and clean-machine UAT remain PENDING because this Intel Mac cannot execute the arm64 App.
-- Universal: not produced; separate architecture assets are used instead.
-- Apple Developer signing, Hardened Runtime with a Developer ID identity, notarization, and stapling: PENDING / external credential blocked. The machine has an Apple Development identity only, not a Developer ID Application identity.
-- Formal Stable `v0.1.0`: not created and not recommended yet.
-
-The current reference Harness checkout is discovered through `--harness` or `DSH_HARNESS_ROOT`. The repository does not assume a globally installed `dsh` command.
-
-## Development
+Install dependencies and run the automated checks:
 
 ```sh
 pnpm install
-pnpm test
 pnpm typecheck
-pnpm dsh-stack --help
+pnpm test
 ```
 
-Inspect the current official Web Profile without modifying it:
+The standard pipeline is:
+
+```text
+Official Harness Profile
+        ↓
+      Freeze
+        ↓
+ Verify / Prove
+        ↓
+    Reproduce
+        ↓
+      Package
+        ↓
+ Reference Client
+```
+
+Inspect a Profile without changing it:
 
 ```sh
 pnpm dsh-stack inspect --profile web --harness ../deepseek-harness
 ```
 
-Freeze it into an artifact:
+Freeze and verify a Profile:
 
 ```sh
 pnpm dsh-stack freeze --profile web --harness ../deepseek-harness --output examples/reference
-```
-
-Verify a frozen artifact in a disposable DSH home:
-
-```sh
 pnpm dsh-stack verify examples/reference --harness ../deepseek-harness
 ```
 
-Run the same materialized artifact through the official Harness Web UI:
+Run the verified artifact through the official Web UI:
 
 ```sh
 pnpm dsh-stack run examples/reference --clean --harness ../deepseek-harness
 ```
 
-Build the generic macOS Reference Client after the Stack has a Runtime PASS receipt:
+Package a Runtime-PASS Stack as a macOS app:
 
 ```sh
-pnpm dsh-stack package examples/reference --harness ../deepseek-harness
+pnpm dsh-stack package examples/reference --harness ../deepseek-harness --size-report
 ```
 
-Add `--size-report` to write a machine-readable closure report beside the App. It separates Native Shell, embedded Node, official Harness runtime, Profile, Profile dependencies, and other App contents; it does not add other Profiles to the artifact.
+The package contains the exact Harness and Profile closure required by that Stack. It does not contain other Profiles, plugins, or a shared runtime repository.
 
-This produces an ad-hoc signed `.app` containing an embedded Node runtime, the deployed official Harness closure, the frozen Profile, and a generic AppKit/WebKit Native Shell that hosts the official Web UI in its own window. It does not hand the URL to Safari or another default browser, and it does not inject API keys into the Harness environment: the official credentials provider owns the editable credential store. Apple Developer signing/notarization remain the primary release gate; see [`docs/reference-distribution-uat.md`](docs/reference-distribution-uat.md).
+## Documentation
 
-Runtime verification executes Harness and plugin code from the Stack. The disposable home is for reproducibility isolation, not a security sandbox or malware boundary.
- [中文版](README.zh-CN.md) | English
- [中文版](README.zh-CN.md) | English
- 
+- [PRD](PRD.md) — product contract and acceptance criteria
+- [Implementation plan](IMPLEMENTATION_PLAN.md) — milestone history and engineering decisions
+- [Reference distribution UAT](docs/reference-distribution-uat.md) — manual installation and user test
+- [Phase 2 generalization](docs/phase-2-generalization.md) — external Profile compatibility work
+- [Phase 2 review](PHASE_2_REVIEW.md) — PASS / FAIL / UNSUPPORTED conclusions
+
+## Security boundary
+
+Verification and packaging execute Harness and plugin code. The disposable runtime home provides reproducibility isolation, not a security sandbox or malware boundary. API keys remain under the official Harness credential provider.

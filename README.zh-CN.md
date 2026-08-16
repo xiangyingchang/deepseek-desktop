@@ -2,161 +2,122 @@
 
 中文版 | [English](README.md)
 
-DeepSeek Desktop (Unofficial) 是由 DSH Stack 生成的公开社区客户端；DSH Stack 是 DeepSeek Harness 的**可复现分发层**。它让一套已经能正常工作的 Harness Profile 可以被冻结（Freeze）、验证（Verify）、重建（Reproduce）并打包（Package）为普通用户可直接下载使用的 macOS 桌面应用。
+> 面向 DeepSeek Harness 的非官方社区桌面客户端，不是 DeepSeek 官方产品。
 
-> 本项目是非官方社区客户端，不是 DeepSeek 官方产品。
+DeepSeek Desktop 可以把一套现有的 DeepSeek Harness Profile 打包成普通用户可直接安装的 macOS 应用。技术项目和 CLI 名称仍然是 **DSH Stack** / `dsh-stack`。
 
-项目的核心定位很明确：**不重新实现** Harness 运行时、Profile 格式、插件系统、pnpm 依赖解析、Agent Loop 或官方 Web UI。它只做一件事——把已有的组合变成可复现、可分发的产物。
+DSH Stack 不重新实现 Harness 运行时、插件系统、pnpm、依赖解析、Agent Loop 或官方 Web UI；它负责冻结、验证、重建并打包官方 Harness 环境。
 
-## 核心理念
+## 下载
 
-> DeepSeek Harness 让 Agent 可组合。  
-> DSH Stack 让这些组合可复现、可分发。
+打开[当前公开的 Reference / RC Release](https://github.com/xiangyingchang/dsh-stack/releases/tag/v0.1.0-reference-v10)，根据你的 Mac 选择对应 DMG：
 
-一句话概括：**冻结一套能工作的 Harness Profile，在干净环境里证明它确实能跑。**
+| Mac 类型 | 下载 | 芯片架构 | 当前验证状态 |
+|---|---|---|---|
+| Intel Mac | [DSH-Stack-Reference-macos-x64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DSH-Stack-Reference-macos-x64.dmg) | x86_64 | 打包、Live Agent、非开发者 UAT：PASS |
+| Apple Silicon Mac | [DSH-Stack-Reference-macos-arm64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DSH-Stack-Reference-macos-arm64.dmg) | arm64 | 原生打包：PASS；实机 App 和 Live Agent UAT：待验证 |
+
+Release 页面同时提供对应的 SHA-256 文件和 verification receipt。当前公开资产仍使用历史名称 `DSH-Stack-Reference-*`；源码现在生成的新品牌 App 名称是 `DeepSeek Desktop (Unofficial)`，但新品牌产物还没有替换公开 Release 中的旧资产。
+
+当前版本是 **Reference / RC 预发布版**，不是 Stable。公开 App 目前是 ad-hoc 签名且未公证，第一次打开时 macOS 可能显示安全提示。
+
+## 安装和使用
+
+普通用户不需要安装 Node、pnpm、`dsh-stack` CLI，也不需要预先安装 Profile 或打开 Terminal。
+
+1. 下载与你的 Mac 匹配的 DMG。
+2. 打开 DMG，把 App 拖到 `Applications` 文件夹。
+3. 双击 App。如果 macOS 显示安全提示，按住 Control 点击 App，选择**打开**并确认。
+4. 进入官方 Harness 的 **Models** 设置页面。
+5. 编辑 **DeepSeek** 提供方，输入 API Key 并保存。支持 `⌘V` / **Edit → Paste** 粘贴。
+6. 创建一个 Web session，发送一条消息。
+7. 如果 Key 不正确，回到同一个 Models 页面替换并保存，然后重试，不需要重启 App。
+
+API Key 由官方 Harness 凭据提供方保存。DSH Stack 不会打印或把 Key 写进 App。
+
+## 我应该下载哪个文件？
+
+在 Mac 上打开**苹果菜单 → 关于本机**：
+
+- 如果显示 **处理器：Intel**，下载 x64 DMG。
+- 如果显示 **芯片：Apple M1/M2/M3/M4……**，下载 arm64 DMG。
+
+除非你是开发者，否则不要下载 source ZIP；普通用户的安装入口是 DMG。
 
 ## 当前状态
 
-现有公开的 `v0.1.0-reference-v10` 是**参考版本 / RC 预发布**，不是稳定版。本仓库现在将公开客户端构建为 **DeepSeek Desktop (Unofficial)**；下面的品牌重打包产物目前只在本机生成，还没有替换 GitHub Release 中的旧资产。arm64 原生 Freeze/Verify/Package 仍可通过现有流水线完成，但 arm64 App/真实 Agent UAT 以及 Apple Developer ID 签名公证仍未完成；x86_64 非开发者 UAT 是针对此前 Reference 产物的 **PASS**。
-
-Phase 2 已经针对真实的外部社区 Profile 完成研究和流水线验证：5 个非官方 Web bundle 通过同一套 Freeze + Runtime Verify + Package，真实第三方失败和本地/workspace 不可移植情况均按事实记录，没有制造 PASS。由于还没有一个外部 Profile 完成独立干净机器 API Key + Live Agent UAT，Phase 2 当前为 **NO-GO**。详见 [Phase 2 设计](docs/phase-2-generalization.md)、[兼容矩阵](docs/phase-2-compatibility-matrix.md) 和 [最终复盘](PHASE_2_REVIEW.md)。
-
-产品需求文档：[PRD.md](PRD.md)  
-实现计划：[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
-
-## 验证状态
-
-### 打包端到端 — PASS（x86_64）
-
-x86_64 打包验证于 2026-08-16 在 Intel 开发 Mac 上完成，覆盖了完整的标准路径：
-
-```
-官方 Profile → Freeze → Verify / Prove → Materialize → Package → DMG → Native Shell → 官方 Harness Web UI
-```
-
-- 本次品牌重打包生成的 Runtime Receipt 为 `PASS`，`cacheUsed: false`
-- 生成了 `DeepSeek Desktop (Unofficial).app` 和 `DeepSeek-Desktop-Unofficial-macos-x86_64.dmg`，`hdiutil verify` 通过
-- SHA-256 和 ad-hoc 签名校验通过；App 内嵌了 A1-Minimal-D 的 `DeepSeekDesktop.icns` 图标
-- 打包应用在受限 `PATH` 下启动，使用内嵌的 Node 运行时，在自身窗口内打开官方 Harness UI，不会跳转到 Safari 或 Chrome
-- 官方 Models 设置页面可编辑，`⌘V` / `Edit → Paste` 可粘贴 API Key
-- 环境：macOS 26.5.2，6 核 Intel Core i7，16 GB RAM，x86_64；Node v26.5.0；pnpm 11.12.0
-- 仓库检查：`pnpm typecheck` 通过；`pnpm test` 22/22 通过
-
-### 实时 Agent 端到端 — PASS（x86_64）
-
-- v10 Native Shell 使用持久化的官方凭据完成真实 DeepSeek 对话，返回 `E2E_PASS`
-- 终止并重新启动后，UI 加载了已保存的模型，返回 `RESTART_PASS`
-- 全新生成的 x86_64 发布 App 返回 `RELEASE_X64_PASS`
-- 三次成功会话的元数据均记录 `turn/end: completed`
-
-### 打包端到端 — PASS（arm64 原生 CI）
-
-2026-08-16，GitHub Actions `31899143451` 在原生 `macos-14` arm64 runner 上完成了同一条标准路径：
-
-```text
-官方 Profile → Freeze → Verify / Prove → Materialize → Package → DMG
-```
-
-- 原生 runner 架构检查通过，Runtime receipt 为 `PASS`，`cacheUsed: false`，`environment.arch` 为 `arm64`
-- 现有公开 arm64 资产仍使用旧的 `DSH-Stack-Reference-macos-arm64.dmg` 名称；本次本机运行没有生成或上传新的 arm64 资产
-- 这证明的是原生 arm64 打包，不等于已经在 Apple Silicon 实机上手动启动 App 或完成真实 Agent 对话
-
-### 非开发者 UAT — PASS（x86_64）
-
-2026-08-16 在第二台非开发者 Intel Mac 上完成了完整的黑盒验证路径，无需终端或开发者干预：
-
-- 从 Release 下载对应架构的 `.dmg`，打开后将 `.app` 拖入 `/Applications`
-- 该机器未安装 Node、pnpm 或 DSH CLI
-- 双击启动应用，官方 Harness Web UI 在 Native Shell 窗口内打开（未跳转浏览器）
-- 官方 Models 编辑器可编辑，API Key 通过手动输入并保存
-- `⌘V` / `Edit → Paste` 粘贴也验证通过
-- 完成一次真实 Agent 对话
-- 退出并重新启动，凭据持久保留，已保存模型加载正常，再次完成真实 Agent 对话
-
-全程无需终端命令、手动 Profile 编辑、lockfile 修复或 PATH 修复。
-
-### 发布就绪度 — RC / 非稳定版
-
 | 项目 | 状态 |
 |---|---|
-| x86_64 打包 & Agent E2E | ✅ PASS |
-| x86_64 非开发者 UAT | ✅ PASS |
-| arm64 原生打包 | ✅ CI Freeze/Verify/Package/DMG PASS；App 启动和真实 Agent 仍待 Apple Silicon 实机 |
-| Universal Binary | ❌ 未生产，采用分架构独立产出 |
-| Apple Developer ID 签名 | ⏳ 仅 Apple Development 身份，无 Developer ID Application 身份 |
-| Hardened Runtime + 公证 | ⏳ 外部凭据阻塞 |
+| x86_64 Freeze → Verify → Package → DMG | PASS |
+| x86_64 App 启动和官方 Harness UI | PASS |
+| x86_64 真实 Agent Session 和重启 | PASS |
+| x86_64 非开发者 UAT | 当前 Reference 产物 PASS |
+| arm64 原生 Freeze → Verify → Package → DMG | CI PASS |
+| arm64 App 启动、Live Agent、非开发者 UAT | 等待 Apple Silicon 实机验证 |
+| Developer ID 签名、Hardened Runtime、公证、Stapling | 等待 Apple 外部凭据 |
+| Stable `v0.1.0` | 尚未发布 |
 
-## 开发
+## 开发者使用
+
+安装依赖并运行自动化检查：
 
 ```sh
 pnpm install
-pnpm test
 pnpm typecheck
-pnpm dsh-stack --help
+pnpm test
 ```
 
-查看当前官方 Web Profile（不修改）：
+标准 Pipeline：
+
+```text
+Official Harness Profile
+        ↓
+      Freeze
+        ↓
+ Verify / Prove
+        ↓
+    Reproduce
+        ↓
+      Package
+        ↓
+ Reference Client
+```
+
+查看 Profile，但不修改它：
 
 ```sh
 pnpm dsh-stack inspect --profile web --harness ../deepseek-harness
 ```
 
-冻结为制品：
+冻结并验证 Profile：
 
 ```sh
 pnpm dsh-stack freeze --profile web --harness ../deepseek-harness --output examples/reference
-```
-
-在一次性 DSH 环境中验证冻结制品：
-
-```sh
 pnpm dsh-stack verify examples/reference --harness ../deepseek-harness
 ```
 
-通过官方 Harness Web UI 运行已重建的制品：
+通过官方 Web UI 运行已验证的制品：
 
 ```sh
 pnpm dsh-stack run examples/reference --clean --harness ../deepseek-harness
 ```
 
-在 Stack 拥有 Runtime PASS 收据后，构建 macOS 参考客户端：
+把 Runtime-PASS Stack 打包成 macOS App：
 
 ```sh
-pnpm dsh-stack package examples/reference --harness ../deepseek-harness
+pnpm dsh-stack package examples/reference --harness ../deepseek-harness --size-report
 ```
 
-这会生成一个 ad-hoc 签名的 `.app`，内含嵌入式 Node 运行时、已部署的官方 Harness 闭包、冻结的 Profile，以及一个在自身窗口中托管官方 Web UI 的通用 AppKit/WebKit Native Shell。它不会将 URL 交给 Safari 或其他默认浏览器，也不会向 Harness 环境注入 API Key——官方凭据提供者拥有可编辑的凭据存储。
+每个 App 只包含该 Stack 所需的精确 Harness 和 Profile 闭包，不包含其他 Profile、插件或共享运行时仓库。
 
-## 项目结构
+## 文档
 
-```
-dsh-stack/
-├── packages/
-│   ├── core/          # 核心库：类型、冻结、验证、重建、打包、适配器
-│   └── cli/           # CLI 入口：参数解析、命令分发、诊断输出
-├── docs/              # 文档（UAT 规范等）
-├── examples/          # 示例冻结制品
-├── fixtures/          # 测试夹具
-├── scripts/           # 构建脚本（macOS 参考客户端构建）
-├── dist/              # 构建输出
-├── PRD.md             # 产品需求文档（权威来源）
-└── IMPLEMENTATION_PLAN.md  # 实现计划（PRD 到工程任务的映射）
-```
-
-## CLI 命令
-
-| 命令 | 说明 |
-|---|---|
-| `inspect` | 检查真实 Harness Profile，不冻结 |
-| `freeze` | 预检并捕获 Profile 为 Stack 制品 |
-| `verify <stack>` | 静态验证并重建 Stack |
-| `run <stack> --clean` | 重建 Stack 并保持官方 Web UI 运行 |
-| `package <stack>` | 将 Runtime-PASS 的 Stack 打包为 macOS .app |
+- [PRD](PRD.md) —— 产品 Contract 和验收标准
+- [实施计划](IMPLEMENTATION_PLAN.md) —— Milestone 历史和工程决策
+- [Reference Distribution UAT](docs/reference-distribution-uat.md) —— 手工安装和用户测试
+- [Phase 2 Generalization](docs/phase-2-generalization.md) —— 外部 Profile 兼容性研究
+- [Phase 2 Review](PHASE_2_REVIEW.md) —— PASS / FAIL / UNSUPPORTED 结论
 
 ## 安全边界
 
-运行时验证会在 Stack 中执行 Harness 和插件代码。一次性 DSH 环境用于可复现性隔离，不是安全沙箱或恶意代码隔离边界。API Key 由官方凭据提供者管理，DSH Stack 不会读取、打印或注入凭据值。
-
-## 许可证
-
-本项目为公开项目。
+验证和打包会执行 Harness 与插件代码。一次性运行时目录提供的是可复现性隔离，不是安全沙箱或恶意代码隔离边界。API Key 始终由官方 Harness 凭据提供方管理。
