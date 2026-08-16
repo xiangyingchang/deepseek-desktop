@@ -2,7 +2,7 @@
 
 This is a manual black-box test. The tester must not be the implementer and must use a Mac without the frozen Profile preconfigured.
 
-The technical project and CLI remain `DSH Stack` / `dsh-stack`. The current public `v0.1.0-reference-v10` assets predate this branding; the new `DeepSeek Desktop (Unofficial)` package below has passed local packaging and launch smoke checks but still needs a separate clean-machine UAT before replacing the public assets.
+The technical project and CLI remain `DSH Stack` / `dsh-stack`. The current public `v0.1.0-reference-v10` assets use the `DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64` and `DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64` naming; the historical asset names below are retained only as evidence labels.
 
 ## Artifact under test
 
@@ -31,7 +31,7 @@ This is a developer-run integration checkpoint, recorded separately from the non
 | Environment | macOS 26.5.2 (build 25F84), 6-core Intel Core i7, 16 GB RAM, x86_64 |
 | Toolchain | Node v26.5.0; pnpm 11.12.0 |
 | Harness | `0.1.0-rc.5`, commit `47f943859bef60e4160492346772ded9b24f765a` |
-| Artifact | `DSH-Stack-Reference-macos-x64.app` + `.dmg`, ad-hoc signed x86_64 Mach-O app |
+| Artifact | historical `DSH-Stack-Reference-macos-x64.app` + `.dmg`, ad-hoc signed x86_64 Mach-O app |
 | Scope | Freeze → Verify / Prove → Materialize → Package → DMG → Native Shell → official Harness Web UI |
 | Result | **PASS** |
 
@@ -44,7 +44,7 @@ This is a local rebuild after changing the public product name and embedding the
 | Field | Recorded result |
 |---|---|
 | Test date | 2026-08-16 Asia/Shanghai |
-| Artifact | `DeepSeek Desktop (Unofficial).app` + `DeepSeek-Desktop-Unofficial-macos-x86_64.dmg` |
+| Artifact | `DeepSeek Desktop (Unofficial).app` + `DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg` |
 | Scope | Freeze → Verify → Materialize → Package → ad-hoc signature → DMG → SHA-256 → App launch → official Harness Web UI |
 | Result | **PASS** |
 
