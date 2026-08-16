@@ -12,12 +12,12 @@ DSH Stack 不重新实现 Harness 运行时、插件系统、pnpm、依赖解析
 
 ## 下载
 
-打开[当前公开的 Reference / RC Release](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.1.0-reference-v10)，根据你的 Mac 选择对应 DMG：
+打开[当前公开的 Reference / RC Release](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.2.0-rc.8)，根据你的 Mac 选择对应 DMG：
 
 | Mac 类型 | 下载 | 芯片架构 | 当前验证状态 |
 |---|---|---|---|
-| Intel Mac | [DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg) | x86_64 | 打包、Live Agent、非开发者 UAT：PASS |
-| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg) | arm64 | 原生打包：PASS；实机 App 和 Live Agent UAT：待验证 |
+| Intel Mac | [DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.8/DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg) | x86_64 | 原生 Freeze → Verify → Package 和 App 健康检查：PASS；Live Agent 和非开发者 UAT：待验证 |
+| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.8/DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg) | arm64 | 原生 Freeze → Verify → Package 和 DMG/App 完整性：PASS；实机 App 和 Live Agent UAT：待验证 |
 
 Release 页面同时提供对应的 SHA-256 文件、verification receipt 和 package-size report。公开资产名称会明确包含 `Intel` 或 `Apple-Silicon`。
 
