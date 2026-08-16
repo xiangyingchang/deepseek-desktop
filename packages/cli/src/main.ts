@@ -189,7 +189,7 @@ async function main(argv = process.argv.slice(2)): Promise<number> {
   const stackRoot = resolve(parsed.stackRoot!)
   if (parsed.command === 'package') {
     const architectureSuffix = parsed.arch === undefined ? '' : ` ${parsed.arch}`
-    const output = absolutePath(parsed.output ?? `./dist/reference-client/${parsed.profile === 'web' ? `DSH Stack Reference${architectureSuffix}.app` : `DSH Stack ${parsed.profile}${architectureSuffix}.app`}`)
+    const output = absolutePath(parsed.output ?? `./dist/reference-client/${parsed.profile === 'web' ? `DeepSeek Desktop (Unofficial)${architectureSuffix}.app` : `DeepSeek Desktop ${parsed.profile}${architectureSuffix}.app`}`)
     const result = await packageStack({ stackRoot, output, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), arch: parsed.arch, nodeRuntime: parsed.nodeRuntime, signingIdentity: parsed.signingIdentity, hardenedRuntime: parsed.hardenedRuntime || undefined, sizeReport: parsed.sizeReport })
     if (parsed.json) console.log(JSON.stringify(result, null, 2))
     else console.log(`PACKAGED\nClient: ${result.appPath}\nArchitecture: ${result.platform.arch}\nSigning: ${result.signing.mode}${result.signing.hardenedRuntime ? ' + hardened-runtime' : ''}\nHarness: ${result.harnessVersion}\nRuntime: ${result.runtimeRoot}${result.sizeReportPath === undefined ? '' : `\nSize report: ${result.sizeReportPath}`}`)

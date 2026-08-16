@@ -25,6 +25,8 @@ function binaryArchitectures(path: string): string[] {
 }
 
 const ASSET_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets')
+const APP_EXECUTABLE = 'deepseek-desktop'
+const APP_ICON = 'DeepSeekDesktop.icns'
 
 async function runDeploy(harnessRoot: string, destination: string): Promise<void> {
   const args = [
@@ -384,14 +386,15 @@ export async function packageStack(options: {
     await cp(materialized.profileDir, join(resources, 'profile'), { recursive: true, dereference: true })
     await copyFile(join(ASSET_ROOT, 'reference-client.mjs'), join(resources, 'reference-client.mjs'))
     await copyFile(join(ASSET_ROOT, 'Info.plist'), join(contents, 'Info.plist'))
+    await copyFile(join(ASSET_ROOT, APP_ICON), join(resources, APP_ICON))
     await copyFile(join(options.stackRoot, 'stack.yaml'), join(resources, 'stack.yaml'))
     await copyFile(join(options.stackRoot, 'stack.integrity.json'), join(resources, 'stack.integrity.json'))
     await copyFile(join(options.stackRoot, 'verification.receipt.json'), join(resources, 'verification.receipt.json'))
     const storageId = `${stack.id}-${integrity.manifest.artifactHash.replace(/^sha256-/u, '').slice(0, 16)}`
     await writeFile(join(resources, 'client.json'), JSON.stringify({ id: stack.id, storageId, profile: stack.harness.profile, secrets: stack.requirements.secrets }, null, 2) + '\n', 'utf8')
     packageTrace(`compiling ${targetArch} Native Shell`)
-    compileNativeShell(join(ASSET_ROOT, 'ReferenceShell.swift'), join(macos, 'dsh-stack-reference'), targetArch)
-    await chmod(join(macos, 'dsh-stack-reference'), 0o755)
+    compileNativeShell(join(ASSET_ROOT, 'ReferenceShell.swift'), join(macos, APP_EXECUTABLE), targetArch)
+    await chmod(join(macos, APP_EXECUTABLE), 0o755)
     packageTrace('signing App bundle')
     const signing = await signApp(appPath, { identity: options.signingIdentity, hardenedRuntime: options.hardenedRuntime })
     const sizeReportPath = options.sizeReport === true

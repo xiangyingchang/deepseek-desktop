@@ -20,7 +20,8 @@ phase() {
 }
 
 case "$ARCH" in
-  x64|arm64) ;;
+  x64) ARCH_LABEL="x86_64" ;;
+  arm64) ARCH_LABEL="arm64" ;;
   *) echo "Unsupported DSH_STACK_ARCH: $ARCH (expected x64 or arm64)" >&2; exit 2 ;;
 esac
 
@@ -39,8 +40,12 @@ mkdir -p "$OUTPUT_DIR"
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/dsh-stack-release.XXXXXX")"
 trap 'rm -rf "$WORK_DIR"' EXIT
 STACK_DIR="$WORK_DIR/stack"
-APP_PATH="$OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH.app"
-DMG_PATH="$OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH.dmg"
+APP_PATH="$OUTPUT_DIR/DeepSeek Desktop (Unofficial).app"
+ARTIFACT_BASENAME="DeepSeek-Desktop-Unofficial-macos-$ARCH_LABEL"
+DMG_PATH="$OUTPUT_DIR/$ARTIFACT_BASENAME.dmg"
+RECEIPT_PATH="$OUTPUT_DIR/$ARTIFACT_BASENAME-verification.receipt.json"
+SIZE_REPORT_PATH="$OUTPUT_DIR/DeepSeek Desktop (Unofficial)-package-size-report.json"
+PUBLIC_SIZE_REPORT_PATH="$OUTPUT_DIR/$ARTIFACT_BASENAME-package-size-report.json"
 
 if [[ -e "$APP_PATH" || -e "$DMG_PATH" ]]; then
   echo "Refusing to overwrite existing release output in $OUTPUT_DIR" >&2
@@ -66,6 +71,10 @@ phase "Package started"
 "${PACKAGE_ARGS[@]}"
 phase "Package completed"
 
+if [[ -f "$SIZE_REPORT_PATH" ]]; then
+  mv "$SIZE_REPORT_PATH" "$PUBLIC_SIZE_REPORT_PATH"
+fi
+
 phase "App signature verification started"
 codesign --verify --deep --strict "$APP_PATH"
 phase "App signature verification completed"
@@ -74,19 +83,19 @@ STAGING_DIR="$WORK_DIR/dmg"
 mkdir -p "$STAGING_DIR"
 ditto "$APP_PATH" "$STAGING_DIR/$(basename "$APP_PATH")"
 ln -s /Applications "$STAGING_DIR/Applications"
-hdiutil create -volname "DSH Stack Reference $ARCH" -srcfolder "$STAGING_DIR" -ov -format UDZO "$DMG_PATH" >/dev/null
+hdiutil create -volname "DeepSeek Desktop (Unofficial) $ARCH_LABEL" -srcfolder "$STAGING_DIR" -ov -format UDZO "$DMG_PATH" >/dev/null
 hdiutil verify "$DMG_PATH" >/dev/null
 phase "DMG created and verified"
 
-cp "$STACK_DIR/verification.receipt.json" "$OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH-verification.receipt.json"
+cp "$STACK_DIR/verification.receipt.json" "$RECEIPT_PATH"
 (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$DMG_PATH")" > "$(basename "$DMG_PATH").sha256")
 
 echo "RELEASE_ARTIFACT"
 echo "Architecture: $ARCH"
 echo "App: $APP_PATH"
 echo "DMG: $DMG_PATH"
-echo "Receipt: $OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH-verification.receipt.json"
-echo "Size report: $OUTPUT_DIR/DSH-Stack-Reference-macos-$ARCH-package-size-report.json"
+echo "Receipt: $RECEIPT_PATH"
+echo "Size report: $PUBLIC_SIZE_REPORT_PATH"
 echo "SHA256: $OUTPUT_DIR/$(basename "$DMG_PATH").sha256"
 if [[ -n "$SIGNING_IDENTITY" ]]; then
   echo "Signing: $SIGNING_IDENTITY + Hardened Runtime"

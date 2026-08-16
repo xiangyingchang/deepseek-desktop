@@ -1,6 +1,8 @@
 import AppKit
 import WebKit
 
+private let publicAppName = "DeepSeek Desktop (Unofficial)"
+
 private struct ClientMetadata: Decodable {
     let id: String
     let profile: String
@@ -67,9 +69,9 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
         let mainMenu = NSMenu()
 
         let applicationItem = NSMenuItem()
-        let applicationMenu = NSMenu(title: "DSH Stack Reference")
+        let applicationMenu = NSMenu(title: publicAppName)
         applicationMenu.addItem(
-            withTitle: "Quit DSH Stack Reference",
+            withTitle: "Quit \(publicAppName)",
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         )
@@ -136,7 +138,7 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "DSH Stack Reference"
+        window.title = publicAppName
         window.contentView = content
         window.center()
         window.isReleasedWhenClosed = false
@@ -224,7 +226,7 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
         view.load(URLRequest(url: url))
         webView = view
         window?.contentView = view
-        window?.title = "DSH Stack Reference — DeepSeek Harness"
+        window?.title = "\(publicAppName) — DeepSeek Harness"
         didLoadWebUI = true
     }
 
@@ -234,7 +236,7 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
         let suffix = details.isEmpty ? "" : "\n\nRuntime diagnostics:\n\(details)"
         stopRuntime()
         let alert = NSAlert()
-        alert.messageText = "DSH Stack Reference could not start"
+        alert.messageText = "\(publicAppName) could not start"
         alert.informativeText = message + suffix
         alert.alertStyle = .critical
         alert.addButton(withTitle: "Quit")

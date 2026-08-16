@@ -1,8 +1,10 @@
-# DSH Stack
+# DeepSeek Desktop (Unofficial)
 
 中文版 | [English](README.md)
 
-DSH Stack 是 DeepSeek Harness 的**可复现分发层**。它让一套已经能正常工作的 Harness Profile 可以被冻结（Freeze）、验证（Verify）、重建（Reproduce）并打包（Package）为普通用户可直接下载使用的 macOS 桌面应用。
+DeepSeek Desktop (Unofficial) 是由 DSH Stack 生成的公开社区客户端；DSH Stack 是 DeepSeek Harness 的**可复现分发层**。它让一套已经能正常工作的 Harness Profile 可以被冻结（Freeze）、验证（Verify）、重建（Reproduce）并打包（Package）为普通用户可直接下载使用的 macOS 桌面应用。
+
+> 本项目是非官方社区客户端，不是 DeepSeek 官方产品。
 
 项目的核心定位很明确：**不重新实现** Harness 运行时、Profile 格式、插件系统、pnpm 依赖解析、Agent Loop 或官方 Web UI。它只做一件事——把已有的组合变成可复现、可分发的产物。
 
@@ -15,7 +17,7 @@ DSH Stack 是 DeepSeek Harness 的**可复现分发层**。它让一套已经能
 
 ## 当前状态
 
-`v0.1.0-reference-v10` 是**公开参考版本 / RC 预发布**，不是稳定版。arm64 原生 Freeze/Verify/Package 已通过，但 arm64 App/真实 Agent UAT 以及 Apple Developer ID 签名公证仍未完成。x86_64 非开发者 UAT 已 **PASS**。
+现有公开的 `v0.1.0-reference-v10` 是**参考版本 / RC 预发布**，不是稳定版。本仓库现在将公开客户端构建为 **DeepSeek Desktop (Unofficial)**；下面的品牌重打包产物目前只在本机生成，还没有替换 GitHub Release 中的旧资产。arm64 原生 Freeze/Verify/Package 仍可通过现有流水线完成，但 arm64 App/真实 Agent UAT 以及 Apple Developer ID 签名公证仍未完成；x86_64 非开发者 UAT 是针对此前 Reference 产物的 **PASS**。
 
 Phase 2 已经针对真实的外部社区 Profile 完成研究和流水线验证：5 个非官方 Web bundle 通过同一套 Freeze + Runtime Verify + Package，真实第三方失败和本地/workspace 不可移植情况均按事实记录，没有制造 PASS。由于还没有一个外部 Profile 完成独立干净机器 API Key + Live Agent UAT，Phase 2 当前为 **NO-GO**。详见 [Phase 2 设计](docs/phase-2-generalization.md)、[兼容矩阵](docs/phase-2-compatibility-matrix.md) 和 [最终复盘](PHASE_2_REVIEW.md)。
 
@@ -32,8 +34,9 @@ x86_64 打包验证于 2026-08-16 在 Intel 开发 Mac 上完成，覆盖了完�
 官方 Profile → Freeze → Verify / Prove → Materialize → Package → DMG → Native Shell → 官方 Harness Web UI
 ```
 
-- 运行时收据（Runtime Receipt）为 `PASS`，`cacheUsed: false`
-- 生成了 `DSH-Stack-Reference-macos-x64.app` 和 `.dmg`，`hdiutil verify` 通过
+- 本次品牌重打包生成的 Runtime Receipt 为 `PASS`，`cacheUsed: false`
+- 生成了 `DeepSeek Desktop (Unofficial).app` 和 `DeepSeek-Desktop-Unofficial-macos-x86_64.dmg`，`hdiutil verify` 通过
+- SHA-256 和 ad-hoc 签名校验通过；App 内嵌了 A1-Minimal-D 的 `DeepSeekDesktop.icns` 图标
 - 打包应用在受限 `PATH` 下启动，使用内嵌的 Node 运行时，在自身窗口内打开官方 Harness UI，不会跳转到 Safari 或 Chrome
 - 官方 Models 设置页面可编辑，`⌘V` / `Edit → Paste` 可粘贴 API Key
 - 环境：macOS 26.5.2，6 核 Intel Core i7，16 GB RAM，x86_64；Node v26.5.0；pnpm 11.12.0
@@ -55,7 +58,7 @@ x86_64 打包验证于 2026-08-16 在 Intel 开发 Mac 上完成，覆盖了完�
 ```
 
 - 原生 runner 架构检查通过，Runtime receipt 为 `PASS`，`cacheUsed: false`，`environment.arch` 为 `arm64`
-- `DSH-Stack-Reference-macos-arm64.dmg`、SHA-256 sidecar 和 verification receipt 已上传到公开 Reference Release
+- 现有公开 arm64 资产仍使用旧的 `DSH-Stack-Reference-macos-arm64.dmg` 名称；本次本机运行没有生成或上传新的 arm64 资产
 - 这证明的是原生 arm64 打包，不等于已经在 Apple Silicon 实机上手动启动 App 或完成真实 Agent 对话
 
 ### 非开发者 UAT — PASS（x86_64）

@@ -3,7 +3,8 @@
 
 **状态：** MVP Architecture Freeze / Ready for Implementation  
 **日期：** 2026-08-15  
-**项目代号：** DSH Stack（正式名称后定）  
+**产品名称：** DeepSeek Desktop (Unofficial)
+**工程代号：** DSH Stack
 **上游：** DeepSeek Harness  
 **核心定位：** Reproducible Distribution Layer for DeepSeek Harness  
 **本文替代：** PRD v2.2 及之前版本  

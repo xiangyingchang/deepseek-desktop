@@ -1,4 +1,4 @@
-# DSH Stack Implementation Plan
+# DeepSeek Desktop (Unofficial) — DSH Stack Implementation Plan
 
 > Authority: [`PRD.md`](PRD.md), DSH Stack PRD v2.3. This file maps the PRD to executable work; it does not redefine the product boundary.
 

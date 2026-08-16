@@ -89,7 +89,7 @@ jobs:
       - name: Upload unsigned/ad-hoc validation artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dsh-stack-reference-macos-${{ matrix.arch }}
+          name: deepseek-desktop-unofficial-macos-${{ matrix.arch }}
           path: dist/release/${{ matrix.arch }}
           if-no-files-found: error
 
@@ -99,9 +99,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload v0.1.0-reference-v10 \
-            "dist/release/arm64/DSH-Stack-Reference-macos-arm64.dmg" \
-            "dist/release/arm64/DSH-Stack-Reference-macos-arm64.dmg.sha256" \
-            "dist/release/arm64/DSH-Stack-Reference-macos-arm64-verification.receipt.json" \
-            "dist/release/arm64/DSH-Stack-Reference-macos-arm64-package-size-report.json" \
+            "dist/release/arm64/DeepSeek-Desktop-Unofficial-macos-arm64.dmg" \
+            "dist/release/arm64/DeepSeek-Desktop-Unofficial-macos-arm64.dmg.sha256" \
+            "dist/release/arm64/DeepSeek-Desktop-Unofficial-macos-arm64-verification.receipt.json" \
+            "dist/release/arm64/DeepSeek-Desktop-Unofficial-macos-arm64-package-size-report.json" \
             --clobber \
             --repo "$GITHUB_REPOSITORY"

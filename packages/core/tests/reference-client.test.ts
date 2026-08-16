@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 test('Reference Client embeds the official Web UI in a Native Shell', async () => {
   const shell = await readFile(new URL('../assets/ReferenceShell.swift', import.meta.url), 'utf8')
   const runtime = await readFile(new URL('../assets/reference-client.mjs', import.meta.url), 'utf8')
+  const info = await readFile(new URL('../assets/Info.plist', import.meta.url), 'utf8')
 
   assert.match(shell, /NSWindow/)
   assert.match(shell, /WKWebView/)
@@ -20,4 +21,7 @@ test('Reference Client embeds the official Web UI in a Native Shell', async () =
   assert.match(runtime, /delete runtimeEnvironment\[name\]/u)
   assert.doesNotMatch(runtime, /process\.env\[name\]/u)
   assert.doesNotMatch(runtime, /\bopen\s*\(/u)
+  assert.match(info, /<string>DeepSeek Desktop \(Unofficial\)<\/string>/u)
+  assert.match(info, /<key>CFBundleIconFile<\/key>\s*<string>DeepSeekDesktop\.icns<\/string>/u)
+  await access(new URL('../assets/DeepSeekDesktop.icns', import.meta.url))
 })
