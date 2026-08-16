@@ -4,6 +4,8 @@ import { asYamlObject, readSafeYaml, writeYaml } from './yaml.ts'
 import type { DistributionManifest, StackManifest } from './types.ts'
 import { DshStackError, diagnostic } from './errors.ts'
 import { readStackManifest, verifyIntegrity, writeIntegrity } from './integrity.ts'
+import { readAndMatchVerifiedReceipt } from './receipt.ts'
+import type { VerificationRun } from './types.ts'
 
 const DISTRIBUTION_FILE = 'distribution.yaml'
 
@@ -93,6 +95,7 @@ export async function promoteDistribution(options: {
   sourceStack: string
   outputStack: string
   version?: string
+  verify: () => Promise<VerificationRun>
 }): Promise<{ output: string; manifest: DistributionManifest }> {
   const source = options.sourceStack
   const output = options.outputStack
@@ -100,21 +103,11 @@ export async function promoteDistribution(options: {
   if (integrity.diagnostics.length > 0 || integrity.manifest === undefined) throw new DshStackError(integrity.diagnostics[0] ?? diagnostic('STACK_INTEGRITY_ERROR', 'STATIC_VERIFY', 'Source Stack integrity is invalid'))
   const sourceStack = await readStackManifest(source)
   const sourceDistribution = await readDistributionManifest(source)
-  let receipt: { verification?: { result?: string; level?: string } }
-  try {
-    receipt = JSON.parse(await readFile(join(source, 'verification.receipt.json'), 'utf8')) as typeof receipt
-  } catch (error) {
-    throw new DshStackError(diagnostic('VERIFICATION_INCOMPLETE', 'FREEZE', `Promotion requires a current Runtime PASS receipt: ${String(error)}`, {
-      action: 'Verify the maintainer Working Profile before Promote.',
-    }))
-  }
-  if (receipt.verification?.result !== 'pass' || receipt.verification.level !== 'runtime') throw new DshStackError(diagnostic('VERIFICATION_INCOMPLETE', 'FREEZE', 'Promotion requires a current Runtime PASS receipt', {
-    action: 'Run Runtime Verify on the Working Profile before Promote.',
-  }))
-  const boundReceipt = receipt as typeof receipt & { stack?: { id?: string; version?: string; integrity?: string } }
-  if (boundReceipt.stack?.id !== sourceStack.id || boundReceipt.stack.version !== sourceStack.version || boundReceipt.stack.integrity !== integrity.manifest.artifactHash) throw new DshStackError(diagnostic('VERIFICATION_INCOMPLETE', 'FREEZE', 'Promotion receipt does not bind the current Stack', {
-    action: 'Run Runtime Verify again before Promote.',
-  }))
+  await readAndMatchVerifiedReceipt(source, await options.verify(), {
+    id: sourceStack.id,
+    version: sourceStack.version,
+    integrity: integrity.manifest.artifactHash,
+  }, 'FREEZE')
   try {
     await stat(output)
     throw new DshStackError(diagnostic('INVALID_ARGUMENT', 'FREEZE', `Promotion output already exists: ${output}`, { action: 'Choose a new immutable Candidate path.' }), 3)

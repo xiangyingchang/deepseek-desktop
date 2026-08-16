@@ -268,6 +268,13 @@ export interface VerificationReceipt {
   diagnostics: Diagnostic[]
 }
 
+/** A result handed directly from the real Verify call to a gated operation. */
+export interface VerificationRun {
+  receipt: VerificationReceipt
+  receiptPath: string
+  exitCode: 0 | 1 | 2
+}
+
 /** Options common to adapter operations. */
 export interface AdapterOptions {
   cwd?: string

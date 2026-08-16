@@ -103,10 +103,10 @@ async function updateDerivedProfileIfNeeded() {
   try {
     const report = await rebase.rebaseProfiles({ oldBase: baseSnapshot, current: profileDestination, newBase: sourceProfile, output: candidateProfile, yaml })
     if (report.status !== 'PASS') throw new Error(`UPDATE_REBASE_CONFLICT: ${JSON.stringify(report.conflicts)}`)
-    // Dependency materialization remains Harness/pnpm-owned. Preserve the
-    // user's installed closure for the candidate; the official runtime will
-    // still prove the candidate before activation.
-    if (existsSync(join(profileDestination, 'node_modules'))) await cp(join(profileDestination, 'node_modules'), join(candidateProfile, 'node_modules'), { recursive: true, dereference: true })
+    // Do not resolve dependencies here. Retain the user's already-installed
+    // packages and overlay the new Base closure; the official runtime proves
+    // the resulting standard Profile before activation.
+    await rebase.mergeDependencyClosure({ baseProfile: sourceProfile, currentProfile: profileDestination, candidateProfile })
     await verifyCandidateProfile(candidateProfile)
     const backup = `${profileDestination}.previous`
     await rm(backup, { recursive: true, force: true }).catch(() => {})

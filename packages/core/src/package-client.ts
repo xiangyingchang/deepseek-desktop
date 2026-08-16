@@ -8,14 +8,14 @@ import {
   diagnostic,
   readStackManifest,
   type HarnessInstallation,
-  type IntegrityManifest,
-  type VerificationReceipt,
+  type VerificationRun,
 } from './index.ts'
 import { SourceHarnessAdapter, currentPlatform } from './source-adapter.ts'
 import { StackMaterializer, type MaterializedEnvironment } from './materializer.ts'
 import { createPackageSizeReport, writePackageSizeReport, type PackageSizeReport } from './package-size-report.ts'
 import { verifyIntegrity } from './integrity.ts'
 import { absolutePath } from './paths.ts'
+import { readAndMatchVerifiedReceipt } from './receipt.ts'
 
 export type MacArchitecture = 'x64' | 'arm64'
 
@@ -275,15 +275,6 @@ function compileNativeShell(source: string, destination: string, arch: string): 
   }
 }
 
-function receiptIsValid(receipt: VerificationReceipt, manifestId: string, integrity: IntegrityManifest): boolean {
-  return receipt.schemaVersion === 1
-    && receipt.stack.id === manifestId
-    && receipt.stack.integrity === integrity.artifactHash
-    && receipt.verification.level === 'runtime'
-    && receipt.verification.result === 'pass'
-    && receipt.verification.cacheUsed === false
-}
-
 /** Result of building one generic macOS Reference Client from a verified Stack. */
 export interface PackageResult {
   appPath: string
@@ -308,21 +299,16 @@ export async function packageStack(options: {
   signingIdentity?: string
   hardenedRuntime?: boolean
   sizeReport?: boolean
+  verify: () => Promise<VerificationRun>
 }): Promise<PackageResult> {
   const stack = await readStackManifest(options.stackRoot)
   const integrity = await verifyIntegrity(options.stackRoot)
   if (integrity.diagnostics.length > 0 || integrity.manifest === undefined) throw new DshStackError(integrity.diagnostics[0] ?? diagnostic('STACK_INTEGRITY_ERROR', 'STATIC_VERIFY', 'Stack integrity is invalid'))
-  let receipt: VerificationReceipt
-  try {
-    receipt = JSON.parse(await readFile(join(options.stackRoot, 'verification.receipt.json'), 'utf8')) as VerificationReceipt
-  } catch (error) {
-    throw new DshStackError(diagnostic('VERIFICATION_INCOMPLETE', 'STATIC_VERIFY', `Runtime verification receipt is missing: ${String(error)}`, {
-      action: 'Run dsh-stack verify <stack> and require a Runtime PASS before packaging.',
-    }))
-  }
-  if (!receiptIsValid(receipt, stack.id, integrity.manifest)) throw new DshStackError(diagnostic('VERIFICATION_INCOMPLETE', 'STATIC_VERIFY', 'Stack does not have a current Runtime PASS receipt', {
-    action: 'Run Runtime Verify again; a receipt for another Stack or a failed receipt cannot authorize Package.',
-  }))
+  await readAndMatchVerifiedReceipt(options.stackRoot, await options.verify(), {
+    id: stack.id,
+    version: stack.version,
+    integrity: integrity.manifest.artifactHash,
+  }, 'STATIC_VERIFY')
   const adapter = new SourceHarnessAdapter()
   const installation = await adapter.detectInstallation({ cwd: options.cwd, harnessRoot: options.harnessRoot, dshHome: options.dshHome })
   if (installation.mode !== 'source') throw new DshStackError(diagnostic('HARNESS_VERSION_UNAVAILABLE', 'MATERIALIZE', 'Package currently requires a source Harness checkout so the official runtime closure can be deployed', {

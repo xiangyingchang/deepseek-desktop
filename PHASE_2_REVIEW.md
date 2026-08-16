@@ -14,7 +14,7 @@ This file now contains two evidence layers: the earlier external Profile general
 - `dsh-stack rebase` and `update` implement `A = old Base`, `B = current Derived`, `C = new Base`, with structured additive merge and explicit `UPDATE_REBASE_CONFLICT`.
 - Verify-before-switch and atomic directory switching retain `<active>.previous` when a candidate is accepted.
 - `dsh-stack promote` is manual and invalidates the old Receipt until the Candidate is verified.
-- `dsh-stack pack` / `import` make `.dshstack` the default state-free sharing path and enforce Integrity/Receipt binding plus secret/user-state exclusion.
+- `dsh-stack pack` / `import` make `.dshstack` the default state-free sharing path; Pack runs the real Verify gate, and both directions enforce Integrity, regular-file, and secret/user-state boundaries.
 - Packaged App data uses stable distribution identity and embeds the generic runtime Rebase path; it no longer keys user data by Base artifact hash.
 - Explicit `upgrade-verify` inspects a supplied Harness checkout and verifies a disposable candidate Stack through the normal materializer.
 
@@ -29,7 +29,7 @@ This file now contains two evidence layers: the earlier external Profile general
 | Same key changed by User/Base → conflict | PASS (blocked as designed) | `UPDATE_REBASE_CONFLICT`; old Profile unchanged |
 | Packaged App runtime Base update | PASS | Isolated HOME; official UI verified before switch; user marker and Base marker both present |
 | Packaged App runtime conflict | PASS (blocked as designed) | Process stopped before runtime; active Profile and previous backup preserved |
-| Automated lifecycle regression suite | PASS | 28/28 tests |
+| Automated lifecycle regression suite | PASS | 31/31 tests |
 
 ### Lifecycle items not promoted to PASS
 

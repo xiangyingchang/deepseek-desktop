@@ -13,6 +13,7 @@ import {
   type VerificationReceipt,
   type VerificationResult,
   type DistributionManifest,
+  type VerificationRun,
 } from './index.ts'
 import { verifyIntegrity } from './integrity.ts'
 import { currentPlatform, SourceHarnessAdapter } from './source-adapter.ts'
@@ -96,10 +97,10 @@ async function persistReceipt(root: string, receipt: VerificationReceipt): Promi
 }
 
 /** Result returned by Verify, including its stable process exit code. */
-export interface VerifyResult {
-  receipt: VerificationReceipt
-  receiptPath: string
-  exitCode: 0 | 1 | 2
+export interface VerifyResult extends VerificationRun {
+  /** Retained only when the caller requested `keepTemp`; the caller owns cleanup. */
+  materializedProfile?: string
+  cleanup?: () => Promise<void>
 }
 
 /** Verify an exact Stack with static checks followed by the shared materializer and official UI. */
@@ -227,15 +228,24 @@ export async function verifyStack(options: {
     checks.push(check('No LLM request required', 'runtime.no-live-llm', 'CORE_TEST', 'pass', 'Core verification used localhost UI health only.'))
     addStage(stages, 'CORE_TEST', 'passed')
     await harnessProcess.stop()
-    if (options.keepTemp !== true) await environment.cleanup()
+    const retainedEnvironment = options.keepTemp === true ? environment : undefined
+    if (retainedEnvironment === undefined) await environment.cleanup()
     const receipt = receiptFor({ startedAt, result: 'pass', integrity: integrity.manifest.artifactHash, id: manifest.id, version: manifest.version, installation, profile: manifest.harness.profile, stages, checks, diagnostics, generatedFiles: ['cordis.yml'], distribution })
-    return { receipt, receiptPath: await persistReceipt(options.stackRoot, receipt), exitCode: 0 }
+    return {
+      receipt,
+      receiptPath: await persistReceipt(options.stackRoot, receipt),
+      exitCode: 0,
+      ...(retainedEnvironment === undefined ? {} : {
+        materializedProfile: retainedEnvironment.profileDir,
+        cleanup: retainedEnvironment.cleanup,
+      }),
+    }
   } catch (error) {
     const d = asDiagnostic(error, stages.at(-1)?.stage ?? 'MATERIALIZE')
     diagnostics.push(d)
     addStage(stages, d.stage, 'failed', d.message)
     if (harnessProcess !== undefined) await harnessProcess.stop().catch(() => {})
-    if (environment !== undefined && options.keepTemp !== true) await environment.cleanup().catch(() => {})
+    if (environment !== undefined) await environment.cleanup().catch(() => {})
     const result = d.code === 'HARNESS_VERSION_UNAVAILABLE' || d.code === 'UNSUPPORTED_PLATFORM' ? 'unsupported' : 'fail'
     const receipt = receiptFor({ startedAt, result, integrity: integrity.manifest.artifactHash, id: manifest.id, version: manifest.version, installation, profile: manifest.harness.profile, stages, checks, diagnostics, distribution })
     return { receipt, receiptPath: await persistReceipt(options.stackRoot, receipt), exitCode: result === 'unsupported' ? 2 : 1 }

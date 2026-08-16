@@ -6,7 +6,7 @@ import { DshStackError, diagnostic } from './errors.ts'
 import { portableRelativePath } from './paths.ts'
 import { readSafeYaml, writeYaml } from './yaml.ts'
 import { readStackManifest, verifyIntegrity, writeIntegrity } from './integrity.ts'
-import { distributionFromStack, writeDistributionManifest } from './distribution.ts'
+import { distributionFromStack, readDistributionManifest, writeDistributionManifest } from './distribution.ts'
 import type { Diagnostic } from './types.ts'
 
 const MISSING = Symbol('missing')
@@ -405,6 +405,41 @@ export async function rebaseStack(options: {
   if (oldIntegrity.diagnostics.length > 0 || oldIntegrity.manifest === undefined) throw new DshStackError(oldIntegrity.diagnostics[0] ?? diagnostic('STACK_INTEGRITY_ERROR', 'REBASE', 'Old Base Stack integrity is invalid', {
     action: 'Use the immutable Old Base that was recorded for the Derived Profile.',
   }))
+  let oldStack
+  let currentStack
+  let newBaseStack
+  let oldDistribution
+  let currentDistribution
+  try {
+    oldStack = await readStackManifest(options.oldBaseStack)
+    currentStack = await readStackManifest(options.currentDerivedStack)
+    newBaseStack = await readStackManifest(options.newBaseStack)
+    oldDistribution = await readDistributionManifest(options.oldBaseStack)
+    currentDistribution = await readDistributionManifest(options.currentDerivedStack)
+  } catch (error) {
+    throw new DshStackError(diagnostic('DISTRIBUTION_SCHEMA_ERROR', 'REBASE', `Unable to read the three Stack identities: ${String(error)}`, {
+      action: 'Pass an immutable Old Base, a Derived Stack descended from it, and a valid New Base Stack.',
+    }))
+  }
+  if (currentDistribution?.kind !== 'derived' || currentDistribution.base === undefined) throw new DshStackError(diagnostic('UPDATE_REBASE_CONFLICT', 'REBASE', 'Current Derived Stack has no verifiable Old Base lineage', {
+    action: 'Freeze the current working Profile with --base <old-base-stack> before attempting Update.',
+  }))
+  const expectedOldBase = {
+    id: oldDistribution?.id ?? oldStack.id,
+    version: oldDistribution?.version ?? oldStack.version,
+    integrity: oldIntegrity.manifest.artifactHash,
+  }
+  if (currentDistribution.base.id !== expectedOldBase.id
+    || currentDistribution.base.version !== expectedOldBase.version
+    || currentDistribution.base.integrity !== expectedOldBase.integrity) throw new DshStackError(diagnostic('UPDATE_REBASE_CONFLICT', 'REBASE', 'Current Derived Stack does not descend from the supplied Old Base', {
+    action: 'Use the exact Old Base recorded in distribution.yaml; the active Profile was not changed.',
+    details: { expectedBase: `${expectedOldBase.id}@${expectedOldBase.version}`, observedBase: `${currentDistribution.base.id}@${currentDistribution.base.version}` },
+  }))
+  if (!await pathIsDirectory(join(options.currentDerivedStack, 'profile'))
+    || !await pathIsDirectory(join(options.oldBaseStack, 'profile'))
+    || !await pathIsDirectory(join(options.newBaseStack, 'profile'))) throw new DshStackError(diagnostic('INVALID_ARGUMENT', 'REBASE', 'Stack Rebase requires Stack roots, not bare Profile directories', {
+    action: 'Use dsh-stack rebase for bare Profiles, or pass three Stack directories to update.',
+  }), 3)
   const oldBaseProfile = await resolveProfileInput(options.oldBaseStack)
   const currentProfile = await resolveProfileInput(options.currentDerivedStack)
   const newBaseProfile = await resolveProfileInput(options.newBaseStack)

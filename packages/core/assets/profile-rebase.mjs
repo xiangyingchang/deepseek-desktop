@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, relative } from 'node:path'
 
 const MISSING = Symbol('missing')
@@ -24,6 +24,23 @@ async function collect(root, current = root, files = new Map()) {
     else if (entry.isFile()) files.set(path, await readFile(full))
   }
   return files
+}
+
+async function copyIfPresent(source, destination) {
+  try {
+    await cp(source, destination, { recursive: true, dereference: true, force: true })
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error
+  }
+}
+
+/**
+ * Merge the already-resolved closures without becoming a dependency resolver:
+ * user packages are retained, while the new Base closure wins on overlap.
+ */
+export async function mergeDependencyClosure({ baseProfile, currentProfile, candidateProfile }) {
+  await copyIfPresent(join(currentProfile, 'node_modules'), join(candidateProfile, 'node_modules'))
+  await copyIfPresent(join(baseProfile, 'node_modules'), join(candidateProfile, 'node_modules'))
 }
 
 function equalBytes(a, b) {

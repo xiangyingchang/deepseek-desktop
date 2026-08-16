@@ -1,11 +1,12 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { access, mkdir, readdir, readFile, stat } from 'node:fs/promises'
+import { access, mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { DshStackError, diagnostic } from './errors.ts'
-import { verifyIntegrity } from './integrity.ts'
+import { readStackManifest, verifyIntegrity } from './integrity.ts'
 import { detectSecretIndicators } from './redaction.ts'
-import type { VerificationReceipt } from './types.ts'
+import { readAndMatchVerifiedReceipt } from './receipt.ts'
+import type { VerificationReceipt, VerificationRun } from './types.ts'
 
 const execFileAsync = promisify(execFile)
 const ARCHIVE_ENTRIES = ['stack.yaml', 'distribution.yaml', 'profile', 'tests', 'stack.integrity.json', 'verification.receipt.json']
@@ -19,6 +20,10 @@ async function walk(root: string, current = root): Promise<string[]> {
     const path = relative(root, full).split('\\').join('/')
     if (entry.isDirectory()) output.push(...await walk(root, full))
     else if (entry.isFile()) output.push(path)
+    else throw new DshStackError(diagnostic('SHARE_ARTIFACT_ERROR', 'PACK', `Shareable Stack contains a non-regular entry: ${path}`, {
+      component: path,
+      action: 'Remove symbolic links and special files before Pack; artifacts must contain regular files only.',
+    }))
   }
   return output.sort()
 }
@@ -50,19 +55,6 @@ async function assertShareableContents(root: string): Promise<void> {
   }
 }
 
-async function readPassingReceipt(root: string, artifactHash: string): Promise<VerificationReceipt> {
-  try {
-    const receipt = JSON.parse(await readFile(join(root, 'verification.receipt.json'), 'utf8')) as VerificationReceipt
-    if (receipt.verification?.result !== 'pass' || receipt.verification.level !== 'runtime') throw new Error('receipt is not a runtime PASS')
-    if (receipt.stack?.integrity !== artifactHash) throw new Error('receipt does not bind the current Stack integrity')
-    return receipt
-  } catch (error) {
-    throw new DshStackError(diagnostic('VERIFICATION_INCOMPLETE', 'PACK', `Shareable Stack requires a current Runtime PASS receipt: ${String(error)}`, {
-      action: 'Run dsh-stack verify on the current Derived Profile before Share This Setup.',
-    }))
-  }
-}
-
 async function assertOutputAbsent(path: string): Promise<void> {
   try {
     await access(path)
@@ -76,12 +68,21 @@ async function assertOutputAbsent(path: string): Promise<void> {
 }
 
 /** Pack a verified Stack as the default, state-free sharing artifact. */
-export async function packShareableStack(options: { stackRoot: string; output: string }): Promise<{ output: string; receipt: VerificationReceipt; files: string[] }> {
+export async function packShareableStack(options: {
+  stackRoot: string
+  output: string
+  verify: () => Promise<VerificationRun>
+}): Promise<{ output: string; receipt: VerificationReceipt; files: string[] }> {
   const root = resolve(options.stackRoot)
   const output = resolve(options.output)
   const integrity = await verifyIntegrity(root)
   if (integrity.diagnostics.length > 0 || integrity.manifest === undefined) throw new DshStackError(integrity.diagnostics[0] ?? diagnostic('STACK_INTEGRITY_ERROR', 'PACK', 'Stack integrity is invalid'))
-  const receipt = await readPassingReceipt(root, integrity.manifest.artifactHash)
+  const stack = await readStackManifest(root)
+  const receipt = await readAndMatchVerifiedReceipt(root, await options.verify(), {
+    id: stack.id,
+    version: stack.version,
+    integrity: integrity.manifest.artifactHash,
+  }, 'PACK')
   await assertShareableContents(root)
   await assertOutputAbsent(output)
   await mkdir(dirname(output), { recursive: true })
@@ -125,15 +126,21 @@ export async function importShareableStack(options: { archive: string; output: s
   if (!files.includes('stack.yaml') || !files.includes('stack.integrity.json') || !files.includes('verification.receipt.json')) throw new DshStackError(diagnostic('SHARE_ARTIFACT_ERROR', 'PACK', 'Archive is missing Stack metadata or its Verification Receipt', {
     action: 'Create the artifact with dsh-stack pack after Runtime Verify.',
   }))
-  await mkdir(output, { recursive: true })
+  await mkdir(dirname(output), { recursive: true })
+  const staging = `${output}.import-${process.pid}-${Date.now()}`
+  await mkdir(staging, { recursive: true })
   try {
-    await execFileAsync('unzip', ['-q', archive, '-d', output], { maxBuffer: 1024 * 1024 })
+    await execFileAsync('unzip', ['-q', archive, '-d', staging], { maxBuffer: 1024 * 1024 })
+    await assertShareableContents(staging)
+    const integrity = await verifyIntegrity(staging)
+    if (integrity.diagnostics.length > 0) throw new DshStackError(integrity.diagnostics[0]!)
+    await rename(staging, output)
   } catch (error) {
+    await rm(staging, { recursive: true, force: true }).catch(() => {})
+    if (error instanceof DshStackError) throw error
     throw new DshStackError(diagnostic('SHARE_ARTIFACT_ERROR', 'PACK', `Unable to extract .dshstack archive: ${String(error)}`, {
       action: 'Inspect the archive and retry Import.',
     }))
   }
-  const integrity = await verifyIntegrity(output)
-  if (integrity.diagnostics.length > 0) throw new DshStackError(integrity.diagnostics[0]!)
   return { output, files }
 }

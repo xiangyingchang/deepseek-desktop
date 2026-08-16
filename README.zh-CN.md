@@ -166,11 +166,11 @@ pnpm dsh-stack rebase <old-base-profile> <current-profile> <new-base-profile> \
   --output ./artifacts/rebase-candidate-profile --report ./artifacts/rebase-report.json
 
 # 将已 Verify 的 Working Profile 手工 Promote 为新的 Candidate
-pnpm dsh-stack promote <verified-derived-stack> --output ./artifacts/base-candidate \
+pnpm dsh-stack promote <derived-stack> --harness ../deepseek-harness --output ./artifacts/base-candidate \
   --distribution-version 0.2.0-rc
 
 # 默认分享/导入无状态 Stack
-pnpm dsh-stack pack <verified-derived-stack> --output ./setup.dshstack
+pnpm dsh-stack pack <derived-stack> --harness ../deepseek-harness --output ./setup.dshstack
 pnpm dsh-stack import ./setup.dshstack --output ./artifacts/imported
 pnpm dsh-stack verify ./artifacts/imported --harness ../deepseek-harness
 
@@ -178,7 +178,7 @@ pnpm dsh-stack verify ./artifacts/imported --harness ../deepseek-harness
 pnpm dsh-stack upgrade-verify <current-stack> ../deepseek-harness --json
 ```
 
-`update` 是受保护的维护者/桌面升级原语：它先 Rebase、再真实 Runtime Verify，最后才切换 `--active <profile-directory>`；验证前不会覆盖当前 Profile。
+`promote`、`pack` 和 `package` 会在操作内部执行真实 Runtime Verify，不信任被编辑或过期的 `verification.receipt.json`。`update` 会 Rebase，保留已验证的物化依赖闭包，然后才切换 `--active <profile-directory>`；验证前不会覆盖当前 Profile。
 
 每个 App 只包含该 Stack 所需的精确 Harness 和 Profile 闭包，不包含其他 Profile、插件或共享运行时仓库。
 

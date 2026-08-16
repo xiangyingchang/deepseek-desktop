@@ -166,11 +166,11 @@ pnpm dsh-stack rebase <old-base-profile> <current-profile> <new-base-profile> \
   --output ./artifacts/rebase-candidate-profile --report ./artifacts/rebase-report.json
 
 # Manually promote a verified Working Profile to a new Candidate
-pnpm dsh-stack promote <verified-derived-stack> --output ./artifacts/base-candidate \
+pnpm dsh-stack promote <derived-stack> --harness ../deepseek-harness --output ./artifacts/base-candidate \
   --distribution-version 0.2.0-rc
 
 # Share/import the default state-free artifact
-pnpm dsh-stack pack <verified-derived-stack> --output ./setup.dshstack
+pnpm dsh-stack pack <derived-stack> --harness ../deepseek-harness --output ./setup.dshstack
 pnpm dsh-stack import ./setup.dshstack --output ./artifacts/imported
 pnpm dsh-stack verify ./artifacts/imported --harness ../deepseek-harness
 
@@ -178,7 +178,7 @@ pnpm dsh-stack verify ./artifacts/imported --harness ../deepseek-harness
 pnpm dsh-stack upgrade-verify <current-stack> ../deepseek-harness --json
 ```
 
-`update` is the guarded maintainer/desktop primitive: it rebases, runs the real Runtime Verify, and only then switches `--active <profile-directory>`. It never overwrites the active Profile before verification.
+`promote`, `pack`, and `package` run the real Runtime Verify as part of the guarded operation; they do not trust an edited or stale `verification.receipt.json`. `update` rebases, keeps the verified materialized dependency closure, and only then switches `--active <profile-directory>`. It never overwrites the active Profile before verification.
 
 The package contains the exact Harness and Profile closure required by that Stack. It does not contain other Profiles, plugins, or a shared runtime repository.
 

@@ -8,8 +8,8 @@
   "verification": {
     "level": "runtime",
     "result": "pass",
-    "startedAt": "2026-08-15T13:47:57.715Z",
-    "finishedAt": "2026-08-15T13:48:18.863Z",
+    "startedAt": "2026-08-16T14:53:31.332Z",
+    "finishedAt": "2026-08-16T14:53:51.961Z",
     "cacheUsed": false
   },
   "environment": {
@@ -41,50 +41,50 @@
     {
       "stage": "STATIC_VERIFY",
       "status": "started",
-      "at": "2026-08-15T13:47:57.716Z"
+      "at": "2026-08-16T14:53:31.333Z"
     },
     {
       "stage": "STATIC_VERIFY",
       "status": "passed",
-      "at": "2026-08-15T13:47:58.904Z"
+      "at": "2026-08-16T14:53:32.327Z"
     },
     {
       "stage": "MATERIALIZE",
       "status": "started",
-      "at": "2026-08-15T13:47:58.904Z"
+      "at": "2026-08-16T14:53:32.327Z"
     },
     {
       "stage": "MATERIALIZE",
       "status": "passed",
-      "at": "2026-08-15T13:47:58.909Z",
+      "at": "2026-08-16T14:53:32.331Z",
       "message": "Profile materialized; no external Profile dependency install was required."
     },
     {
       "stage": "BOOT",
       "status": "started",
-      "at": "2026-08-15T13:47:58.909Z"
+      "at": "2026-08-16T14:53:32.331Z"
     },
     {
       "stage": "BOOT",
       "status": "passed",
-      "at": "2026-08-15T13:48:18.696Z",
-      "message": "Official Harness Web UI responded at http://127.0.0.1:51348."
+      "at": "2026-08-16T14:53:51.862Z",
+      "message": "Official Harness Web UI responded at http://127.0.0.1:58955."
     },
     {
       "stage": "ACTIVATE",
       "status": "passed",
-      "at": "2026-08-15T13:48:18.696Z",
+      "at": "2026-08-16T14:53:51.862Z",
       "message": "The official Web profile reached its serving state."
     },
     {
       "stage": "CORE_TEST",
       "status": "started",
-      "at": "2026-08-15T13:48:18.696Z"
+      "at": "2026-08-16T14:53:51.862Z"
     },
     {
       "stage": "CORE_TEST",
       "status": "passed",
-      "at": "2026-08-15T13:48:18.696Z"
+      "at": "2026-08-16T14:53:51.862Z"
     }
   ],
   "checks": [
@@ -101,6 +101,13 @@
       "stage": "STATIC_VERIFY",
       "result": "pass",
       "message": "All hashed Stack files match."
+    },
+    {
+      "name": "Distribution metadata",
+      "type": "static.distribution",
+      "stage": "STATIC_VERIFY",
+      "result": "pass",
+      "message": "Legacy Stack has no distribution metadata."
     },
     {
       "name": "Harness version",
@@ -121,7 +128,7 @@
       "type": "runtime.health",
       "stage": "CORE_TEST",
       "result": "pass",
-      "message": "http://127.0.0.1:51348"
+      "message": "http://127.0.0.1:58955"
     },
     {
       "name": "Profile generated root",

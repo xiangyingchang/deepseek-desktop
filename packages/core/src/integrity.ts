@@ -25,6 +25,8 @@ async function artifactFiles(root: string, current = root): Promise<string[]> {
     const relativePath = portableRelativePath(relative(root, full))
     if (entry.isDirectory()) output.push(...await artifactFiles(root, full))
     else if (entry.isFile() && relativePath !== INTEGRITY_FILE && relativePath !== RECEIPT_FILE) output.push(relativePath)
+    else if (entry.isSymbolicLink()) throw new Error(`Stack artifacts cannot contain symbolic links: ${relativePath}`)
+    else if (!entry.isFile()) throw new Error(`Stack artifacts cannot contain special files: ${relativePath}`)
   }
   return output.sort()
 }
@@ -65,7 +67,15 @@ export async function verifyIntegrity(root: string): Promise<{ manifest?: Integr
     }))
     return { diagnostics }
   }
-  const expected = await computeIntegrity(root)
+  let expected: IntegrityManifest
+  try {
+    expected = await computeIntegrity(root)
+  } catch (error) {
+    diagnostics.push(diagnostic('STACK_INTEGRITY_ERROR', 'STATIC_VERIFY', `Unable to compute Stack integrity: ${String(error)}`, {
+      action: 'Remove symbolic links or special files and re-freeze the Stack artifact.',
+    }))
+    return { manifest, diagnostics }
+  }
   if (JSON.stringify(expected) !== JSON.stringify(manifest)) {
     diagnostics.push(diagnostic('STACK_INTEGRITY_ERROR', 'STATIC_VERIFY', 'Stack integrity does not match its files', {
       component: INTEGRITY_FILE,

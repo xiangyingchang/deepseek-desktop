@@ -52,7 +52,7 @@ Any conflict or verification failure leaves the active Profile unchanged.
 
 ## Sharing
 
-`dsh-stack pack <verified-stack> --output setup.dshstack` creates a zip-compatible archive containing only Stack metadata, Profile inputs, tests, Integrity, optional distribution metadata, and the current Runtime Receipt. Pack rejects state-bearing paths, credentials, and likely secret values. `dsh-stack import setup.dshstack` validates archive paths and integrity before extraction; the next step is the normal `dsh-stack verify` command.
+`dsh-stack pack <stack> --harness <checkout> --output setup.dshstack` first runs the real Runtime Verify in the same command, then creates a zip-compatible archive containing only Stack metadata, Profile inputs, tests, Integrity, optional distribution metadata, and the current Runtime Receipt. Pack rejects edited/stale Receipts, state-bearing paths, credentials, symbolic links, and likely secret values. `dsh-stack import setup.dshstack` validates archive paths, regular-file contents, and integrity before the atomic extraction switch; the next step is the normal `dsh-stack verify` command.
 
 The archive does not include `node_modules`, caches, sessions, API keys, credentials, prompts, responses, personal files, or secret-bearing logs. The recipient gets the same Profile definition and dependency versions but keeps separate credentials and user state.
 
@@ -82,6 +82,6 @@ The following evidence was actually executed against the local official Harness 
 | Derived update with independent user/base Profile changes | PASS | Runtime Verify completed before atomic switch; both changes were present and the old Profile backup existed |
 | App runtime Base update | PASS | Isolated packaged runtime merged a user marker and a new Base marker, verified the official UI, then switched atomically |
 | App runtime conflict | PASS (blocked as designed) | Same key changed on both sides returned `UPDATE_REBASE_CONFLICT`; active Profile remained unchanged |
-| Automated lifecycle tests | PASS | 28/28 tests, including CLI lifecycle parsing, additions, conflicts, secret/state exclusion, archive import, and rollback |
+| Automated lifecycle tests | PASS | 31/31 tests, including CLI lifecycle parsing, additions, conflicts, Receipt gating, symlink rejection, dependency-closure preservation, archive import, and rollback |
 
 The App runtime checks used an isolated temporary `HOME` and a locally generated test mutation; they are not a clean-machine UAT or a claim that the public Release has been replaced. The live third-party Bundle installation attempt used the real `mario03690/dsh-netcafe` commit `6873f2d` and was blocked inside the official source Harness command by its non-interactive production install/postinstall path (`lefthook` missing before dependency restoration). That remains an upstream Harness/source-install blocker, not a DSH Stack PASS.

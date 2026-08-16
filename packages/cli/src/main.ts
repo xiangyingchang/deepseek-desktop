@@ -45,11 +45,11 @@ Commands:
   freeze                  preflight and capture a Profile into a Stack artifact
   verify <stack>          statically verify and reconstruct a Stack
   run <stack> --clean     reconstruct a Stack and keep the official Web UI open
-  package <stack>         package a Runtime-PASS Stack as a macOS .app
+  package <stack>         verify, then package a Stack as a macOS .app
   drift <base> <current>  detect Profile-owned changes without mutating either Profile
   rebase <old> <current> <new>  compute a three-way Profile rebase candidate
-  promote <stack>         manually promote a verified Working Profile to a Base Candidate
-  pack <stack>             create the default state-free .dshstack sharing artifact
+  promote <stack>         verify, then manually promote a Working Profile
+  pack <stack>             verify, then create the default state-free .dshstack
   import <archive>        inspect and extract a .dshstack for standard verification
   update <old> <current> <new>  verify a rebased candidate, then atomically switch it
   upgrade-verify <stack> <harness>  verify a Stack against an explicit Harness candidate
@@ -254,7 +254,9 @@ async function baseReference(path: string): Promise<{ id: string; version: strin
 async function promoteCommand(args: ParsedArgs): Promise<number> {
   const source = absolutePath(args.operands[0]!)
   const output = absolutePath(args.output ?? `${source}-candidate`)
-  const result = await promoteDistribution({ sourceStack: source, outputStack: output, version: args.distributionVersion })
+  const verification = await verifyStack({ stackRoot: source, harnessRoot: args.harnessRoot, dshHome: args.dshHome, cwd: process.cwd(), host: args.host, port: args.port })
+  if (verification.exitCode !== EXIT_CODES.success) throw new DshStackError(verification.receipt.diagnostics[0] ?? { code: 'VERIFICATION_INCOMPLETE', stage: 'STATIC_VERIFY', message: 'Runtime Verify did not PASS; promotion was not performed', action: `Inspect ${verification.receiptPath} and resolve the Verify diagnostics.` }, verification.exitCode)
+  const result = await promoteDistribution({ sourceStack: source, outputStack: output, version: args.distributionVersion, verify: async () => verification })
   if (args.json) console.log(JSON.stringify(result, null, 2))
   else console.log(`PROMOTED\nCandidate: ${result.output}\nDistribution: ${result.manifest.kind} ${result.manifest.version}`)
   return EXIT_CODES.success
@@ -263,7 +265,9 @@ async function promoteCommand(args: ParsedArgs): Promise<number> {
 async function packCommand(args: ParsedArgs): Promise<number> {
   const stackRoot = absolutePath(args.operands[0]!)
   const output = absolutePath(args.output ?? `${stackRoot}.dshstack`)
-  const result = await packShareableStack({ stackRoot, output })
+  const verification = await verifyStack({ stackRoot, harnessRoot: args.harnessRoot, dshHome: args.dshHome, cwd: process.cwd(), host: args.host, port: args.port })
+  if (verification.exitCode !== EXIT_CODES.success) throw new DshStackError(verification.receipt.diagnostics[0] ?? { code: 'VERIFICATION_INCOMPLETE', stage: 'STATIC_VERIFY', message: 'Runtime Verify did not PASS; Pack was not performed', action: `Inspect ${verification.receiptPath} and resolve the Verify diagnostics.` }, verification.exitCode)
+  const result = await packShareableStack({ stackRoot, output, verify: async () => verification })
   if (args.json) console.log(JSON.stringify(result, null, 2))
   else console.log(`PACKED\nShareable Stack: ${result.output}\nFiles: ${result.files.join(', ')}`)
   return EXIT_CODES.success
@@ -290,12 +294,12 @@ async function updateCommand(args: ParsedArgs): Promise<number> {
   })
   await writeRebaseReport(reportPath, result.report)
   if (result.report.status !== 'PASS' || result.candidateStack === undefined) throw new DshStackError({ code: 'UPDATE_REBASE_CONFLICT', stage: 'REBASE', message: `Update blocked: ${result.report.conflicts.length} Distribution Rebase conflict(s)`, action: `The active Profile was not changed. Review ${reportPath}.` })
-  const verification = await verifyStack({ stackRoot: result.candidateStack, harnessRoot: args.harnessRoot, dshHome: args.dshHome, cwd: process.cwd(), keepTemp: args.keepTemp, host: args.host, port: args.port })
+  const verification = await verifyStack({ stackRoot: result.candidateStack, harnessRoot: args.harnessRoot, dshHome: args.dshHome, cwd: process.cwd(), keepTemp: true, host: args.host, port: args.port })
   if (verification.exitCode !== EXIT_CODES.success) throw new DshStackError(verification.receipt.diagnostics[0] ?? { code: 'VERIFICATION_INCOMPLETE', stage: 'SWITCH', message: `Candidate verification returned ${verification.receipt.verification.result.toUpperCase()}`, action: `The active Profile was not changed. Inspect ${verification.receiptPath}.` })
-  const candidateProfile = join(result.candidateStack, 'profile')
+  if (verification.materializedProfile === undefined || verification.cleanup === undefined) throw new DshStackError({ code: 'VERIFICATION_INCOMPLETE', stage: 'SWITCH', message: 'Candidate Verify did not return its materialized Profile', action: 'Retry the update with the current DSH Stack CLI.' })
   const switchCopy = `${absolutePath(args.activePath!)}.candidate-${Date.now()}`
-  await cp(candidateProfile, switchCopy, { recursive: true, dereference: true })
   try {
+    await cp(verification.materializedProfile, switchCopy, { recursive: true, dereference: true })
     await verifyThenAtomicSwitch({
       candidateProfile: switchCopy,
       activeProfile: absolutePath(args.activePath!),
@@ -303,6 +307,7 @@ async function updateCommand(args: ParsedArgs): Promise<number> {
     })
   } finally {
     await rm(switchCopy, { recursive: true, force: true }).catch(() => {})
+    await verification.cleanup()
   }
   if (args.json) console.log(JSON.stringify({ report: result.report, receipt: verification.receipt, active: absolutePath(args.activePath!) }, null, 2))
   else console.log(`UPDATED\nActive Profile: ${absolutePath(args.activePath!)}\nCandidate Receipt: ${verification.receiptPath}\nOld Profile retained as: ${absolutePath(args.activePath!)}.previous`)
@@ -354,7 +359,9 @@ async function main(argv = process.argv.slice(2)): Promise<number> {
   if (parsed.command === 'package') {
     const architectureSuffix = parsed.arch === undefined ? '' : ` ${parsed.arch}`
     const output = absolutePath(parsed.output ?? `./dist/reference-client/${parsed.profile === 'web' ? `DeepSeek Desktop (Unofficial)${architectureSuffix}.app` : `DeepSeek Desktop ${parsed.profile}${architectureSuffix}.app`}`)
-    const result = await packageStack({ stackRoot, output, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), arch: parsed.arch, nodeRuntime: parsed.nodeRuntime, signingIdentity: parsed.signingIdentity, hardenedRuntime: parsed.hardenedRuntime || undefined, sizeReport: parsed.sizeReport })
+    const verification = await verifyStack({ stackRoot, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), host: parsed.host, port: parsed.port })
+    if (verification.exitCode !== EXIT_CODES.success) throw new DshStackError(verification.receipt.diagnostics[0] ?? { code: 'VERIFICATION_INCOMPLETE', stage: 'STATIC_VERIFY', message: 'Runtime Verify did not PASS; Package was not performed', action: `Inspect ${verification.receiptPath} and resolve the Verify diagnostics.` }, verification.exitCode)
+    const result = await packageStack({ stackRoot, output, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), arch: parsed.arch, nodeRuntime: parsed.nodeRuntime, signingIdentity: parsed.signingIdentity, hardenedRuntime: parsed.hardenedRuntime || undefined, sizeReport: parsed.sizeReport, verify: async () => verification })
     if (parsed.json) console.log(JSON.stringify(result, null, 2))
     else console.log(`PACKAGED\nClient: ${result.appPath}\nArchitecture: ${result.platform.arch}\nSigning: ${result.signing.mode}${result.signing.hardenedRuntime ? ' + hardened-runtime' : ''}\nHarness: ${result.harnessVersion}\nRuntime: ${result.runtimeRoot}${result.sizeReportPath === undefined ? '' : `\nSize report: ${result.sizeReportPath}`}`)
     return EXIT_CODES.success
