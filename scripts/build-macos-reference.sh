@@ -15,6 +15,7 @@ SIGNING_IDENTITY="${DSH_STACK_CODESIGN_IDENTITY:-}"
 NODE_RUNTIME="${DSH_STACK_NODE_RUNTIME:-}"
 NOTARY_PROFILE="${DSH_STACK_NOTARY_PROFILE:-}"
 APP_VERSION="${DSH_STACK_APP_VERSION:-}"
+STORAGE_ID="${DSH_STACK_STORAGE_ID:-}"
 
 phase() {
   echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $1"
@@ -56,6 +57,7 @@ fi
 cd "$ROOT_DIR"
 
 FREEZE_ARGS=(pnpm dsh-stack freeze --profile "$PROFILE" --harness "$HARNESS_ROOT" --output "$STACK_DIR")
+if [[ -n "$STORAGE_ID" ]]; then FREEZE_ARGS+=(--storage-id "$STORAGE_ID"); fi
 phase "Freeze started"
 "${FREEZE_ARGS[@]}"
 phase "Freeze completed"
