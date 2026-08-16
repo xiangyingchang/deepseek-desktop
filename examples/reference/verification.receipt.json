@@ -3,13 +3,13 @@
   "stack": {
     "id": "dsh-web",
     "version": "0.1.0",
-    "integrity": "sha256-5590c2a0cb00b3a71498440c7ea06b591fbf1b225c8d2def1f3340938db66456"
+    "integrity": "sha256-b11260e80688224404e4db9240d7d67aa7c5aa3771e80d51df617d5ad1d90571"
   },
   "verification": {
     "level": "runtime",
     "result": "pass",
-    "startedAt": "2026-08-16T14:53:31.332Z",
-    "finishedAt": "2026-08-16T14:53:51.961Z",
+    "startedAt": "2026-08-16T17:11:20.127Z",
+    "finishedAt": "2026-08-16T17:11:41.080Z",
     "cacheUsed": false
   },
   "environment": {
@@ -30,6 +30,10 @@
       "cordis.yml"
     ]
   },
+  "distribution": {
+    "kind": "base",
+    "storageId": "dsh-web-5590c2a0cb00b3a7"
+  },
   "thirdPartyCodeExecuted": true,
   "externalServices": {
     "llm": false,
@@ -41,50 +45,50 @@
     {
       "stage": "STATIC_VERIFY",
       "status": "started",
-      "at": "2026-08-16T14:53:31.333Z"
+      "at": "2026-08-16T17:11:20.128Z"
     },
     {
       "stage": "STATIC_VERIFY",
       "status": "passed",
-      "at": "2026-08-16T14:53:32.327Z"
+      "at": "2026-08-16T17:11:21.099Z"
     },
     {
       "stage": "MATERIALIZE",
       "status": "started",
-      "at": "2026-08-16T14:53:32.327Z"
+      "at": "2026-08-16T17:11:21.099Z"
     },
     {
       "stage": "MATERIALIZE",
       "status": "passed",
-      "at": "2026-08-16T14:53:32.331Z",
+      "at": "2026-08-16T17:11:21.104Z",
       "message": "Profile materialized; no external Profile dependency install was required."
     },
     {
       "stage": "BOOT",
       "status": "started",
-      "at": "2026-08-16T14:53:32.331Z"
+      "at": "2026-08-16T17:11:21.104Z"
     },
     {
       "stage": "BOOT",
       "status": "passed",
-      "at": "2026-08-16T14:53:51.862Z",
-      "message": "Official Harness Web UI responded at http://127.0.0.1:58955."
+      "at": "2026-08-16T17:11:40.981Z",
+      "message": "Official Harness Web UI responded at http://127.0.0.1:61903."
     },
     {
       "stage": "ACTIVATE",
       "status": "passed",
-      "at": "2026-08-16T14:53:51.862Z",
+      "at": "2026-08-16T17:11:40.982Z",
       "message": "The official Web profile reached its serving state."
     },
     {
       "stage": "CORE_TEST",
       "status": "started",
-      "at": "2026-08-16T14:53:51.862Z"
+      "at": "2026-08-16T17:11:40.982Z"
     },
     {
       "stage": "CORE_TEST",
       "status": "passed",
-      "at": "2026-08-16T14:53:51.862Z"
+      "at": "2026-08-16T17:11:40.982Z"
     }
   ],
   "checks": [
@@ -107,7 +111,7 @@
       "type": "static.distribution",
       "stage": "STATIC_VERIFY",
       "result": "pass",
-      "message": "Legacy Stack has no distribution metadata."
+      "message": "Distribution base metadata is valid."
     },
     {
       "name": "Harness version",
@@ -128,7 +132,7 @@
       "type": "runtime.health",
       "stage": "CORE_TEST",
       "result": "pass",
-      "message": "http://127.0.0.1:58955"
+      "message": "http://127.0.0.1:61903"
     },
     {
       "name": "Profile generated root",

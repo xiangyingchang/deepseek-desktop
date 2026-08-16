@@ -3461,3 +3461,151 @@ Phase 2 必须实际证明：
 6. Upstream Upgrade：Harness Candidate 得到明确 PASS/FAIL，不把未验证兼容性标成 PASS。
 
 任何没有真实执行证据的项目必须保持 `FAIL`、`UNSUPPORTED` 或 `INCOMPLETE`，不得因为 Fixture 或静态分析而伪造 Live Agent PASS。
+
+## 141. User Data Preservation and Update Transaction Contract
+
+一旦用户开始正式使用 DeepSeek Desktop，升级操作必须满足比“通常保留数据”更严格的产品契约：
+
+> 更新失败时，旧 App、旧 Derived Profile、Credentials、Sessions、Conversation History、Preferences 和 Workspace Data 仍然可用；更新操作本身不得静默删除、覆盖或重置 User State。
+
+### 141.1 App Artifact 与 User State 的物理边界
+
+App Artifact 是不可变内容：
+
+```text
+App Artifact
+= Native Shell
++ Embedded Node Runtime
++ Exact Harness Runtime
++ Base Profile
++ Base Verification Receipt
+```
+
+User State 是可变内容，必须位于稳定的 Distribution Storage Identity 下，并且不能由 App 版本、Base integrity、Harness version 或公开品牌名称派生：
+
+```text
+Stable Distribution Storage Identity
+├── Official Harness DSH_HOME state
+│   ├── credentials
+│   ├── sessions / conversation history
+│   ├── preferences
+│   └── workspace data
+├── Current Derived Profile
+├── Immutable Base Snapshots
+├── Update Transaction Journal
+└── Recovery Backups
+```
+
+当前已发布用户使用的 `~/Library/Application Support/DSH Stack/<stable-id>/` 目录必须继续可识别。不得因为公开产品名称改为 DeepSeek Desktop 而直接切换到新的数据目录；如果未来必须迁移，必须采用 Copy-on-write、双重校验和可回滚的一次性迁移，旧目录在确认成功前不得删除。
+
+Native Shell 和 embedded runtime 必须使用同一个 `storageId`。`id`、App version、Base version 和 Base integrity 不得被其中任一层私自解释为新的 User State 目录。
+
+### 141.2 User State Preservation Rules
+
+1. Update、Rebase、Package、Freeze 和 Share 不得把 Credentials、Sessions、History、Preferences、Workspace Data 带入 Distribution Artifact。
+2. Update 只允许修改 Profile-owned inputs、Generated Profile closure、Base Snapshot 和生命周期元数据；User State 目录按不透明数据处理，不参与 Profile Rebase。
+3. Credentials 必须继续由官方 Harness credentials provider 管理；DSH Stack 不得读取、打印、复制或重新编码真实 API Key。
+4. 如果上游 Harness 改变 User State schema，必须先在临时副本中迁移并验证；任何迁移失败都必须保留旧格式和旧 App，不得原地破坏。
+5. Sessions、History 或 Workspace 如果无法证明兼容，必须保留原始数据并明确标记不可用或要求迁移，不能静默清空。
+6. 更新开始前必须停止或锁定当前 Runtime；更新期间 User State 发生外部变化时，更新必须阻止并重试，不能覆盖较新的用户写入。
+
+### 141.3 Update Transaction
+
+App update 不是简单替换 `.app`，而是一个可恢复事务：
+
+```text
+Check Update Manifest
+↓
+Download New App to Staging
+↓
+Verify Signature / Architecture / SHA-256 / Distribution Identity
+↓
+Quiesce Runtime and Acquire User State Lock
+↓
+Capture User State Fingerprint
+↓
+Preflight New App
+  A = Old Base
+  B = Current Derived Profile
+  C = New Base
+  Candidate = C + (A → B)
+↓
+Runtime Verify Candidate in Disposable DSH_HOME
+↓ PASS
+Write Recovery Journal and Backup Current App/Profile References
+↓
+Atomic App/Profile Switch
+↓
+Launch New App Health Check
+↓ PASS
+Verify User State Fingerprint Unchanged
+↓
+Commit Transaction and Retain Rollback Window
+```
+
+更新事务必须记录阶段、旧版本、候选版本、旧/新 Base integrity、Profile 路径、恢复路径和事务 ID。Journal 必须采用临时文件写入、flush/sync、同文件系统 rename 的方式持久化。
+
+进程崩溃、断电、磁盘不足、下载损坏、校验失败、Rebase conflict、Runtime Verify 失败或新 App 启动失败，都必须能够依据 Journal 恢复到旧 App + 旧 Profile + 原 User State。恢复完成前不得清理 Recovery Backup。
+
+### 141.4 Verify-before-install 与 App Rollback
+
+“新 App 已经替换后才发现不能启动”不满足本 PRD。新 App 必须先在 staging 位置执行不接触真实 Credentials 的 Profile Rebase 和 Runtime Verify；只有 PASS 后才允许安装。
+
+App 本体必须有独立于 Web UI 的更新与恢复入口。Harness Web UI 不能承担更新器职责，因为新 Harness 可能在 Web UI 启动前失败。
+
+新 App 首次启动必须完成 Health Check 后才提交事务。旧 App 至少保留到新 App 首次成功启动；如果 Health Check 失败，必须自动或可执行地恢复旧 App。当前 Profile 的 `.previous` 不能被解释为完整 App rollback；Profile rollback 与 App rollback 是两个都必须存在的边界。
+
+### 141.5 Update Manifest 与 Release Trust
+
+Update Manifest 只能表达发布和更新元数据，不得成为第二套 Profile 或 Plugin Manifest。至少包含：
+
+```text
+schemaVersion
+distributionId
+channel
+appVersion
+baseVersion
+baseIntegrity
+harnessVersion
+minimum macOS
+architecture-specific asset URL
+SHA-256
+Verification Receipt URL
+release notes URL
+```
+
+正式 Stable 自动更新必须同时满足 Developer ID signing、Hardened Runtime、Notarization、Stapling 和 updater 对签名/manifest 的校验。只有 ad-hoc 或未 notarized 的 RC 只能提供检查更新和手动下载，不得伪装成可信自动更新。
+
+### 141.6 Zero False PASS 数据验收
+
+必须增加以下回归和故障注入：
+
+1. API Key、Credentials 文件内容摘要、Sessions、History、Preferences 和 Workspace Data 在成功升级前后保持一致；测试不得输出真实值。
+2. 用户 Plugin X/Y 在兼容升级后保留；Base 新增内容同时存在。
+3. 同一 Plugin 冲突、Verify 失败、错误架构、错误 SHA-256、损坏下载、磁盘不足和新 App 启动失败时，旧 App 和旧 Profile 仍可启动。
+4. 在每个 Journal 阶段注入进程退出，重启后都能恢复或安全阻止，不能出现半切换状态。
+5. 公开品牌、App version 或 Base integrity 变化不得产生新的 User State 目录。
+
+在上述证据完成前，产品状态必须标记为 `INCOMPLETE`，不得宣称“升级不会影响用户数据”或 Stable Release Ready。
+
+### 141.7 Update Runtime Guard and Candidate Proof
+
+App updater 必须在切换前确认当前官方 Harness Runtime 已退出。运行中的 Reference Client 持有 User State Runtime Lock；Native Shell 的 `Install Update…` 会先停止当前 Runtime，等待其退出，再启动 updater。任何没有拿到 Quiesce/Lock 证据的外部更新请求必须返回 `APP_UPDATE_REQUIRES_QUIT`，不得继续 staging 或替换 App。
+
+候选 App 不能只因为 Web UI 能启动就被接受。候选包至少必须同时满足：
+
+```text
+Candidate client.json
+      ↕
+stack.integrity.json artifactHash
+      ↕
+verification.receipt.json Runtime PASS
+      ↕
+codesign verification
+```
+
+Receipt 必须绑定 Distribution ID、Base version、Base integrity、Storage Identity，并且必须是非缓存的 Runtime PASS。缺失、过期、冲突或无法绑定的 Receipt 必须阻止更新。
+
+Recovery Journal 中的 User State 路径只能是稳定根目录内的受控路径；App 路径必须匹配启动中的 App anchor。Journal 损坏、路径穿越、事务 ID 非法或 anchor 不匹配时必须 fail closed，不得尝试猜测恢复目标。
+
+当前 RC 的更新仍然是用户主动操作：检查更新、下载并挂载 DMG、选择 `.app`、执行标准 updater。Developer ID、Hardened Runtime、Notarization、Stapling、公开 Update Manifest 签名和独立 clean-machine 验证完成前，不得启用无确认的后台自动安装。

@@ -67,6 +67,7 @@ Freeze options:
   --report <path>         machine-readable drift/rebase report
   --active <path>         active Profile directory for an update switch
   --distribution-version <version>  Candidate version for Promote
+  --storage-id <id>        stable User State directory identity for a Distribution
   --base <stack>          Base Stack identity for a newly frozen Derived Profile
   --force                 record an inconsistent source as unverified; never bypasses secret detection
 
@@ -78,6 +79,9 @@ Verify/run options:
   --node-runtime <path>   explicit target-architecture Node executable for Package
   --signing-identity <id> codesign identity; default is ad-hoc
   --hardened-runtime      enable Hardened Runtime when signing
+  --app-version <version> App version embedded in the client metadata
+  --update-manifest-url <url> HTTPS Update Manifest for Native Check for Updates
+  --update-channel <stable|rc> release channel for the Native updater (default: rc)
   --size-report           write package-size-report.json next to the App
   --live                  reserved; returns UNSUPPORTED in V0.1
 `
@@ -102,10 +106,14 @@ interface ParsedArgs {
   signingIdentity?: string
   hardenedRuntime: boolean
   sizeReport: boolean
+  appVersion?: string
+  updateManifestURL?: string
+  updateChannel?: 'stable' | 'rc'
   report?: string
   activePath?: string
   baseStack?: string
   distributionVersion?: string
+  storageId?: string
 }
 
 function optionValue(argv: readonly string[], index: number, flag: string): { value: string; next: number } {
@@ -145,6 +153,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs | 'help' | 'versi
       const item = optionValue(argv, index, token); parsed.baseStack = item.value; index = item.next
     } else if (token === '--distribution-version') {
       const item = optionValue(argv, index, token); parsed.distributionVersion = item.value; index = item.next
+    } else if (token === '--storage-id') {
+      const item = optionValue(argv, index, token); parsed.storageId = item.value; index = item.next
     } else if (token === '--host') {
       const item = optionValue(argv, index, token); parsed.host = item.value; index = item.next
     } else if (token === '--port') {
@@ -160,6 +170,16 @@ export function parseArgs(argv: readonly string[]): ParsedArgs | 'help' | 'versi
     } else if (token === '--signing-identity') {
       const item = optionValue(argv, index, token); parsed.signingIdentity = item.value; index = item.next
     } else if (token === '--hardened-runtime') parsed.hardenedRuntime = true
+    else if (token === '--app-version') {
+      const item = optionValue(argv, index, token); parsed.appVersion = item.value; index = item.next
+    } else if (token === '--update-manifest-url') {
+      const item = optionValue(argv, index, token); parsed.updateManifestURL = item.value; index = item.next
+    } else if (token === '--update-channel') {
+      const item = optionValue(argv, index, token)
+      if (item.value !== 'stable' && item.value !== 'rc') throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Invalid update channel ${item.value}`, action: 'Use --update-channel stable or --update-channel rc.' }, EXIT_CODES.invalidInput)
+      parsed.updateChannel = item.value
+      index = item.next
+    }
     else if (token === '--size-report') parsed.sizeReport = true
     else if (token.startsWith('--')) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unknown option ${token}`, action: 'Run dsh-stack --help to see the supported options.' }, EXIT_CODES.invalidInput)
     else parsed.operands.push(token)
@@ -350,7 +370,7 @@ async function main(argv = process.argv.slice(2)): Promise<number> {
   if (parsed.command === 'freeze') {
     const output = absolutePath(parsed.output ?? `./artifacts/${parsed.profile}`)
     const base = parsed.baseStack === undefined ? undefined : await baseReference(parsed.baseStack)
-    const result = await freezeProfile({ profile: parsed.profile, output, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), force: parsed.force, base })
+    const result = await freezeProfile({ profile: parsed.profile, output, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), force: parsed.force, base, storageId: parsed.storageId })
     if (parsed.json) console.log(JSON.stringify(result, null, 2))
     else console.log(`FROZEN\nArtifact: ${result.output}\nStack: ${result.manifest.id} ${result.manifest.version}\nHarness: ${result.installation.version}\nConsistency: ${result.manifest.source.consistency}\nIntegrity: ${result.integrity.artifactHash}`)
     return EXIT_CODES.success
@@ -361,7 +381,7 @@ async function main(argv = process.argv.slice(2)): Promise<number> {
     const output = absolutePath(parsed.output ?? `./dist/reference-client/${parsed.profile === 'web' ? `DeepSeek Desktop (Unofficial)${architectureSuffix}.app` : `DeepSeek Desktop ${parsed.profile}${architectureSuffix}.app`}`)
     const verification = await verifyStack({ stackRoot, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), host: parsed.host, port: parsed.port })
     if (verification.exitCode !== EXIT_CODES.success) throw new DshStackError(verification.receipt.diagnostics[0] ?? { code: 'VERIFICATION_INCOMPLETE', stage: 'STATIC_VERIFY', message: 'Runtime Verify did not PASS; Package was not performed', action: `Inspect ${verification.receiptPath} and resolve the Verify diagnostics.` }, verification.exitCode)
-    const result = await packageStack({ stackRoot, output, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), arch: parsed.arch, nodeRuntime: parsed.nodeRuntime, signingIdentity: parsed.signingIdentity, hardenedRuntime: parsed.hardenedRuntime || undefined, sizeReport: parsed.sizeReport, verify: async () => verification })
+    const result = await packageStack({ stackRoot, output, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), arch: parsed.arch, nodeRuntime: parsed.nodeRuntime, signingIdentity: parsed.signingIdentity, hardenedRuntime: parsed.hardenedRuntime || undefined, sizeReport: parsed.sizeReport, appVersion: parsed.appVersion, updateManifestURL: parsed.updateManifestURL, updateChannel: parsed.updateChannel, verify: async () => verification })
     if (parsed.json) console.log(JSON.stringify(result, null, 2))
     else console.log(`PACKAGED\nClient: ${result.appPath}\nArchitecture: ${result.platform.arch}\nSigning: ${result.signing.mode}${result.signing.hardenedRuntime ? ' + hardened-runtime' : ''}\nHarness: ${result.harnessVersion}\nRuntime: ${result.runtimeRoot}${result.sizeReportPath === undefined ? '' : `\nSize report: ${result.sizeReportPath}`}`)
     return EXIT_CODES.success

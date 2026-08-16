@@ -210,15 +210,93 @@ Date of this record: 2026-08-16. `PASS` below means the stated scope was actuall
 9. **PRD Deviations:** None.
 10. **Readiness for Next Milestone:** STOP AND REVIEW; do not begin Registry/Marketplace/Studio.
 
+## M17 — User Data Contract
+
+1. **Implementation Summary:** Locked stable Distribution Storage Identity, User State exclusion, Native/JS `storageId` parity, and legacy `DSH Stack` Application Support compatibility in PRD §141.
+2. **Files Changed:** `PRD.md`, `IMPLEMENTATION_PLAN.md`, `docs/phase-2-lifecycle.md`, `packages/core/assets/ReferenceShell.swift`, `packages/core/assets/update-state.mjs`, `packages/core/src/package-client.ts`.
+3. **Architecture Decisions:** App version, Base integrity, Harness version, and public brand cannot derive a new User State root; unsafe storage IDs fail closed.
+4. **Tests Added:** Stable/fallback storage identity and path-escape rejection; Native Shell asset assertions.
+5. **Test Results:** PASS in automated tests and real compiled App metadata inspection.
+6. **Failure Fixtures Added:** `update-user-state-mutation`.
+7. **Known Limitations:** Existing third-party Harness state locations still require an explicit compatibility audit before Stable.
+8. **Security Boundaries:** User State fingerprints contain paths, types, sizes and hashes only; no secret values are persisted or printed.
+9. **PRD Deviations:** None.
+10. **Readiness for Next Milestone:** Ready for durable transaction implementation.
+
+## M18 — Update Transaction Journal
+
+1. **Implementation Summary:** Added atomic JSON Journal writes, update lock, User State fingerprint, Profile/Base/lifecycle backup paths, conservative recovery, and interrupted-transaction cleanup.
+2. **Files Changed:** `packages/core/assets/update-state.mjs`, `packages/core/assets/reference-client.mjs`, update-state tests and fixtures.
+3. **Architecture Decisions:** Only Stack-owned lifecycle paths are mutable; User State is opaque. Non-committed Journals always roll back conservatively.
+4. **Tests Added:** User State mutation blocking, Profile/Base/lifecycle recovery, committed cleanup, and storage identity tests.
+5. **Test Results:** PASS at the milestone; the suite was 37/37 at the initial journal implementation and is 44/44 after the later App updater, manifest, architecture, Journal-anchor, runtime-lock, and candidate-proof regressions were added. Real official Runtime integration remained PASS after the change.
+6. **Failure Fixtures Added:** `update-transaction-interrupted`, `update-user-state-mutation`.
+7. **Known Limitations:** App bundle replacement is implemented as the separate M20 transaction with its own Journal and rollback boundary; signed public installation and independent clean-machine recovery remain pending.
+8. **Security Boundaries:** Journal paths are constrained to the stable storage root; credentials are hashed only for comparison and never logged.
+9. **PRD Deviations:** None.
+10. **Readiness for Next Milestone:** Profile-level recovery is ready; App-level staging remains required.
+
+## M19 — Verify-before-install
+
+1. **Implementation Summary:** Added Update Manifest validation and architecture-specific asset selection; Native Shell checks an HTTPS feed before offering a user-driven download and later App selection.
+2. **Files Changed:** `packages/core/src/update-manifest.ts`, `packages/core/src/types.ts`, `packages/core/assets/ReferenceShell.swift`, CLI package metadata options, `docs/update-manifest.example.json`.
+3. **Architecture Decisions:** RC cannot auto-install an ad-hoc/unsigned artifact. Manifest identity, HTTPS, architecture and SHA-256 shape are rejected before a download is offered.
+4. **Tests Added:** Cross-distribution, HTTP, duplicate/missing architecture and valid asset selection tests.
+5. **Test Results:** PASS for manifest validation and local staged-candidate preflight; actual signed public App download and release-asset installation are not claimed.
+6. **Failure Fixtures Added:** Update Manifest tests cover the failure modes.
+7. **Known Limitations:** Full DMG download, signature verification, staging and pre-install candidate verification remain incomplete.
+8. **Security Boundaries:** Native update check never invokes a shell, never modifies Application Support, and only opens an HTTPS asset after manifest validation.
+9. **PRD Deviations:** None.
+10. **Readiness for Next Milestone:** The separate App updater/helper is now implemented; proceed only to signed-public and clean-machine validation, and do not call Stable-ready.
+
+## M20 — App Rollback and Health Check
+
+1. **Implementation Summary:** Added the packaged `app-updater.mjs` helper, candidate Receipt binding, runtime-quiesce guard, App Journal, staged bundle replacement, first-launch pending/commit state, and recovery of App/Profile/Base/lifecycle metadata.
+2. **Files Changed:** `packages/core/assets/app-updater.mjs`, `reference-client.mjs`, `update-state.mjs`, package asset deployment, Native Shell metadata and tests.
+3. **Architecture Decisions:** Candidate App preflight runs only against disposable managed state; the real App commits only after its first Web UI health signal. App rollback and Profile rollback remain separate.
+4. **Tests Added:** App Journal recovery, first-launch pending/commit, stale-backup protection, and local old-App → new-App staged update.
+5. **Test Results:** Local x86_64 ad-hoc App pair PASS in temporary state with real official Harness preflight and first-launch Web UI health; old App retained. Signed public auto-install remains pending.
+6. **Failure Fixtures Added:** `update-transaction-interrupted`, App updater recovery tests.
+7. **Known Limitations:** Native Shell currently requires the user to mount the downloaded DMG and select the `.app`; full signed DMG download/install and clean-machine rollback remain pending.
+8. **Security Boundaries:** Preflight excludes User State and removes declared secret environment variables; App replacement never copies User State into the candidate bundle.
+9. **PRD Deviations:** None.
+10. **Readiness for Next Milestone:** Ready for release-manifest integration and external signed/clean-machine validation.
+
+## M21 — Update Manifest / Check UX
+
+1. **Implementation Summary:** Added Native Shell `Check for Updates…`, `Install Update…`, versioned client metadata, architecture-aware manifest selection, and user-driven RC installation through the standard updater.
+2. **Files Changed:** `ReferenceShell.swift`, `Info.plist`, `package-client.ts`, `packages/cli/src/main.ts`, README files.
+3. **Architecture Decisions:** Update UX is Native Shell-owned and remains available independently of Harness Web UI health. No second Profile or Plugin manifest was introduced.
+4. **Tests Added:** CLI option parsing, compiled App metadata, manifest validation and Native Shell source assertions.
+5. **Test Results:** PASS for compiled x86_64 App, manual-check/install code path, local staged App updater, candidate Receipt binding, runtime-quiesce guard, and manifest validation; no live public Update Manifest is published by this change.
+6. **Failure Fixtures Added:** `docs/update-manifest.example.json` is an explicit template, not release evidence.
+7. **Known Limitations:** Automatic signed installation remains pending M20 and Apple credentials.
+8. **Security Boundaries:** HTTPS-only feed, Distribution ID match, channel match, architecture match and SHA-256 shape validation; no silent install.
+9. **PRD Deviations:** None.
+10. **Readiness for Next Milestone:** M22 must cover real User State preservation and external update behavior.
+
+## M22 — User-state Upgrade E2E
+
+1. **Implementation Summary:** Completed representative local App upgrade evidence; the full public/clean-machine User State contract remains incomplete.
+2. **Files Changed:** Transaction assets, stable Distribution metadata, updater helper, fixtures and lifecycle records.
+3. **Architecture Decisions:** Real state migration is copy-on-write; unknown or incompatible Harness state blocks rather than being guessed.
+4. **Tests Added:** Representative state fingerprint and interrupted recovery tests.
+5. **Test Results:** Representative credential/session/preferences files remained unchanged through a local x86_64 staged update and first-launch Health Check; real user-owned credentials/session/history/workspace upgrade on an independent machine remains `INCOMPLETE`.
+6. **Failure Fixtures Added:** `update-user-state-mutation`, `update-transaction-interrupted`.
+7. **Known Limitations:** Requires a real packaged old/new App pair, upgrade interruption injection, and clean user-state evidence.
+8. **Security Boundaries:** Test evidence records hashes and counts, never real credentials.
+9. **PRD Deviations:** None.
+10. **Readiness for Next Milestone:** STOP before Stable; run signed DMG, clean-machine and real user-state upgrade validation.
+
 ## STOP AND REVIEW
 
-1. **Implementation Summary:** Phase 2 lifecycle core is implemented and evidence is recorded; product-level completion still has explicit external gates.
-2. **Files Changed:** This record, `PHASE_2_REVIEW.md` pending final update.
+1. **Implementation Summary:** Profile lifecycle and the first User Data Preservation transaction layer are implemented; product-level App update safety remains incomplete.
+2. **Files Changed:** This record and the User Data Preservation implementation/docs.
 3. **Architecture Decisions:** Keep `.dshstack` as default sharing; keep standalone App advanced; no ecosystem accumulation.
-4. **Tests Added:** 28 automated tests plus real official Freeze/Verify/Pack/Import/Package/App runtime paths.
-5. **Test Results:** Core lifecycle PASS; external third-party Bundle and clean-machine lifecycle remain incomplete.
-6. **Failure Fixtures Added:** Four lifecycle fixtures.
-7. **Known Limitations:** No distinct Harness upgrade, no external clean-machine lifecycle UAT, and no Developer ID/notarization proof.
+4. **Tests Added:** 44 automated tests plus real official Freeze/Verify/Pack/Import/Package/App metadata/integration paths.
+5. **Test Results:** Core lifecycle and transaction fixtures PASS; local installed-App rollback and representative User State preservation PASS; real user-owned upgrade, external clean-machine lifecycle, and signed release remain incomplete.
+6. **Failure Fixtures Added:** Lifecycle fixtures plus `update-user-state-mutation` and `update-transaction-interrupted`.
+7. **Known Limitations:** No distinct Harness upgrade, no external clean-machine lifecycle UAT, and no Developer ID/notarization proof. The local App updater/helper transaction is implemented and tested, but is not yet enabled as a trusted public auto-installer.
 8. **Security Boundaries:** Zero False PASS remains in force.
 9. **PRD Deviations:** None.
 10. **Readiness for Next Milestone:** Review and decide GO/NO-GO for Phase 3 Verification CI; do not auto-enter Registry/Marketplace/Studio.

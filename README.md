@@ -35,6 +35,8 @@ You do not need Node, pnpm, the `dsh-stack` CLI, a pre-installed Profile, or a T
 6. Create a Web session and send a message.
 7. If the key is rejected, return to the same Models page, replace it, save, and retry. Restarting is not required.
 
+For a new RC update, use **DeepSeek Desktop → Check for Updates…**. After downloading and mounting the DMG, choose **Install Update…** and select the new `.app`; the current runtime is stopped before the transaction starts. If the candidate fails verification, the old App and User State remain in place. The public v10 App predates this menu, so install the fixed build once before using this flow.
+
 The API key is stored by the official Harness credentials provider. DSH Stack does not print or embed the key in the app.
 
 ## App screenshots
@@ -58,6 +60,10 @@ Base Distribution (immutable)
 ```
 
 Installing a standard Bundle through the official Harness creates a Derived Working Profile. A later Desktop Base update must rebase that Profile onto the new Base; it must never silently replace the whole Profile or delete your Bundles. DSH Stack verifies the candidate before switching it atomically. If the change is ambiguous, the update is blocked and the previous working Profile remains available.
+
+App updates are a separate, transaction-protected operation. The stable Distribution Storage Identity keeps the official Harness credentials, sessions, history, preferences, workspace data, and Derived Profile outside the immutable App bundle. A new App/Base is staged and verified before switching; a conflict, failed verification, interrupted transaction, or failed first launch must keep the previous App and User State usable. The local x86_64 transaction path has been tested with an isolated old-App → new-App upgrade. RC builds provide a check/download path plus an explicit **Install Update…** transaction; trusted public automatic installation remains pending Developer ID signing, notarization, public asset/download validation, and independent clean-machine rollback evidence.
+
+Maintainers must keep the same `storageId` in `distribution.yaml` for every release of one distribution line. The public Reference Release continues the legacy id `dsh-web-5590c2a0cb00b3a7`; changing it would create a new empty User State root.
 
 The normal way to share a setup is a small state-free `.dshstack`, not another full App:
 
@@ -189,6 +195,7 @@ The package contains the exact Harness and Profile closure required by that Stac
 - [Reference distribution UAT](docs/reference-distribution-uat.md) — manual installation and user test
 - [Phase 2 generalization](docs/phase-2-generalization.md) — external Profile compatibility work
 - [Phase 2 lifecycle](docs/phase-2-lifecycle.md) — Base/Derived/Rebase/Share model and evidence boundary
+- [Update Manifest example](docs/update-manifest.example.json) — release metadata shape for architecture-specific update checks
 - [Phase 2 review](PHASE_2_REVIEW.md) — PASS / FAIL / UNSUPPORTED conclusions
 
 ## Security boundary

@@ -1,0 +1,10 @@
+{
+  "kind": "update-user-state-mutation",
+  "expected": "fail",
+  "errorCode": "USER_STATE_CHANGED_DURING_UPDATE",
+  "assertions": [
+    "credentials and session state are fingerprinted without persisting secret values",
+    "a concurrent User State write blocks the update",
+    "the active Profile and Base snapshot are restored"
+  ]
+}

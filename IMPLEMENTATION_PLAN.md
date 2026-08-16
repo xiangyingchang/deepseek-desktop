@@ -4,7 +4,7 @@
 
 > Authority: [`PRD.md`](PRD.md), DSH Stack PRD v2.3. This file maps the PRD to executable work; it does not redefine the product boundary.
 
-> Current plan status: Phase 2 lifecycle model is frozen and implementation is in progress. The historical M0–M8 records below remain evidence of the completed Freeze → Verify → Reproduce foundation; the lifecycle milestones in this section are the current acceptance plan.
+> Current plan status: Phase 2 lifecycle model is frozen; the User Data Preservation and Update Transaction implementation is complete for the local x86_64 Reference path, with signed-public-update and independent clean-machine gates still pending. The historical M0–M8 records below remain evidence of the completed Freeze → Verify → Reproduce foundation.
 
 ## Frozen product boundary
 
@@ -50,7 +50,13 @@ This plan implements the lifecycle model in PRD §140. It is deliberately ordere
 | M14 — User-state Regression | Prove credentials, compatible sessions, settings, workspace data and user plugins are not copied into share artifacts and survive update | M7, M10–M12 | state fixture, secret scan, upgrade regression | Distribution/Profile Definition remains separate from User State |
 | M15 — Upstream Watcher | Observe official Harness release/commit metadata and create an explicit Upgrade Candidate without auto-promoting Stable | M1, current Harness audit | current/unknown candidate, floating-ref and pin tests | watcher records evidence only; no master auto-upgrade |
 | M16 — Upgrade Candidate Verification | Verify current Base/Profile and Plugin compatibility against candidate Harness; return explicit PASS/FAIL/UNSUPPORTED | M4, M9, M15 | candidate pass/fail fixtures and receipt tests | exact Plugin/Profile cause is reported; no false compatibility PASS |
-| STOP AND REVIEW | Review all E2E evidence, receipts, size/closure boundaries, limitations and external UAT | M1–M16 | full regression suite and actual E2E rerun | produce `PHASE_2_REVIEW.md`; decide Phase 2 GO/NO-GO and whether Phase 3 Verification CI should start |
+| M17 — User Data Contract | Freeze stable Distribution Storage Identity, User State boundary, legacy path compatibility, and Native/JS path parity | M1, M14 | storage identity, legacy directory, and state exclusion tests | App version/Base integrity/brand changes cannot create a new User State directory; User State is never a Profile input |
+| M18 — Update Transaction Journal | Add durable transaction phases, user-state fingerprint, lock/quiesce contract, recovery journal, and crash recovery | M17 | journal atomicity, each-phase interruption, changed-state blocking | every interrupted update either commits a verified candidate or restores the old working environment |
+| M19 — Verify-before-install | Stage the new App/Base, bind candidate Integrity/Receipt, and run Rebase and Runtime Verify before changing the installed App or active Profile | M18, M4–M7 | wrong SHA, wrong arch, Journal tamper, Rebase conflict, Verify failure, insufficient disk fixtures | failed preflight makes zero destructive changes; old App/Profile/User State remain usable |
+| M20 — App Rollback and Health Check | Keep old App version through first-launch Health Check; add independent Native recovery path | M18–M19 | new App launch failure, process crash, rollback and restart tests | Profile `.previous` and App rollback are separate; a failed new App cannot strand the user |
+| M21 — Update Manifest / Check UX | Define signed release metadata and Native Shell check/install entry without putting update logic in Harness Web UI | M17–M20 | manifest identity/arch/hash/channel tests; RC user-driven Install Update behavior | RC checks and installs only through the standard updater; Stable automation requires signed metadata, signing, and notarization |
+| M22 — User-state Upgrade E2E | Verify credentials/session/history/preferences/workspace preservation across successful, blocked, interrupted and recovered updates | M17–M21, real Harness | byte/hash-safe state fixtures, real isolated upgrade, crash injection | no false PASS; unsupported schema migration blocks and preserves the old state |
+| STOP AND REVIEW | Review all E2E evidence, receipts, size/closure boundaries, limitations and external UAT | M1–M22 | full regression suite and actual E2E rerun | produce `PHASE_2_REVIEW.md`; decide Phase 2 GO/NO-GO and whether Phase 3 Verification CI should start |
 
 ### Shared pipeline invariant
 
@@ -85,7 +91,7 @@ Each milestone record must include exactly:
 
 The record must distinguish evidence from expectation. A fixture PASS is not a real Harness or Live Agent PASS; external UAT and credentials remain explicitly labelled when unavailable.
 
-The detailed execution record for M1–M16 is maintained in [`docs/phase-2-lifecycle-record.md`](docs/phase-2-lifecycle-record.md). M9, M10, M14, M15, M16 and STOP AND REVIEW intentionally retain `INCOMPLETE`/pending evidence where an external Harness install path, newer upstream version, clean machine, or Apple credential is required.
+The detailed execution record for M1–M16 is maintained in [`docs/phase-2-lifecycle-record.md`](docs/phase-2-lifecycle-record.md). M9, M10, M14, M15, M16 and STOP AND REVIEW intentionally retain `INCOMPLETE`/pending evidence where an external Harness install path, newer upstream version, clean machine, or Apple credential is required. M17–M22 are the active User Data Preservation and Update Transaction work; until M22 passes, “upgrade does not affect user data” remains `INCOMPLETE`.
 
 ## Harness reality frozen by the initial audit
 
