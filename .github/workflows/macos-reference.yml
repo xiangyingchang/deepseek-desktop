@@ -17,9 +17,9 @@ jobs:
       matrix:
         include:
           - arch: x64
-            host_arch: arm64
+            host_arch: x86_64
             node_arch: x64
-            runner: macos-14
+            runner: macos-13
           - arch: arm64
             host_arch: arm64
             node_arch: arm64
