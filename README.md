@@ -14,10 +14,10 @@ Open the [current public Reference / RC Release](https://github.com/xiangyingcha
 
 | Mac | Download | CPU | Current evidence |
 |---|---|---|---|
-| Intel Mac | [DeepSeek-Desktop-Unofficial-macos-x86_64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macos-x86_64.dmg) | x86_64 | Packaging, Live Agent, and clean-machine UAT: PASS |
-| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macos-arm64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macos-arm64.dmg) | arm64 | Native packaging: PASS; manual App and Live Agent UAT: pending |
+| Intel Mac | [DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg) | x86_64 | Packaging, Live Agent, and clean-machine UAT: PASS |
+| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg) | arm64 | Native packaging: PASS; manual App and Live Agent UAT: pending |
 
-The Release also contains matching SHA-256 files, verification receipts, and package-size reports. The public assets now use the `DeepSeek-Desktop-Unofficial-*` name.
+The Release also contains matching SHA-256 files, verification receipts, and package-size reports. The public asset names explicitly include `Intel` or `Apple-Silicon`.
 
 This is a **Reference / RC pre-release**, not Stable. Current public apps are ad-hoc signed and not notarized, so macOS may show an approval warning on first launch.
 

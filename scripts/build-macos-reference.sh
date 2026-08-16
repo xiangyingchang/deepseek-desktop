@@ -20,8 +20,8 @@ phase() {
 }
 
 case "$ARCH" in
-  x64) ARCH_LABEL="x86_64" ;;
-  arm64) ARCH_LABEL="arm64" ;;
+  x64) ARCH_LABEL="Intel-x86_64"; ARCH_DISPLAY_LABEL="Intel" ;;
+  arm64) ARCH_LABEL="Apple-Silicon-arm64"; ARCH_DISPLAY_LABEL="Apple Silicon" ;;
   *) echo "Unsupported DSH_STACK_ARCH: $ARCH (expected x64 or arm64)" >&2; exit 2 ;;
 esac
 
@@ -83,7 +83,7 @@ STAGING_DIR="$WORK_DIR/dmg"
 mkdir -p "$STAGING_DIR"
 ditto "$APP_PATH" "$STAGING_DIR/$(basename "$APP_PATH")"
 ln -s /Applications "$STAGING_DIR/Applications"
-hdiutil create -volname "DeepSeek Desktop (Unofficial) $ARCH_LABEL" -srcfolder "$STAGING_DIR" -ov -format UDZO "$DMG_PATH" >/dev/null
+hdiutil create -volname "DeepSeek Desktop (Unofficial) - $ARCH_DISPLAY_LABEL" -srcfolder "$STAGING_DIR" -ov -format UDZO "$DMG_PATH" >/dev/null
 hdiutil verify "$DMG_PATH" >/dev/null
 phase "DMG created and verified"
 
