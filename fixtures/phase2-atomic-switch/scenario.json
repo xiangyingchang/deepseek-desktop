@@ -1,0 +1,9 @@
+{
+  "kind": "phase2-atomic-switch",
+  "expected": "PASS",
+  "assertions": [
+    "candidate verification happens before switch",
+    "failed verification leaves the active Profile unchanged",
+    "successful switch retains a previous active backup"
+  ]
+}

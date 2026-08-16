@@ -47,3 +47,19 @@ test('package accepts an explicit native architecture and runtime controls', () 
 test('package rejects unknown architectures', () => {
   assert.throws(() => parseArgs(['package', 'reference', '--arch', 'universal']), /Invalid macOS architecture/)
 })
+
+test('Phase 2 lifecycle commands preserve their explicit path arity', () => {
+  const drift = parseArgs(['drift', 'old-base', 'current', '--json', '--report', '/tmp/drift.json'])
+  assert.notEqual(drift, 'help')
+  assert.notEqual(drift, 'version')
+  if (drift === 'help' || drift === 'version') return
+  assert.equal(drift.command, 'drift')
+  assert.deepEqual(drift.operands, ['old-base', 'current'])
+  const update = parseArgs(['update', 'old', 'current', 'new', '--active', '/tmp/active'])
+  assert.notEqual(update, 'help')
+  assert.notEqual(update, 'version')
+  if (update === 'help' || update === 'version') return
+  assert.equal(update.command, 'update')
+  assert.equal(update.activePath, '/tmp/active')
+  assert.throws(() => parseArgs(['update', 'old', 'current', 'new']), /update requires --active/)
+})

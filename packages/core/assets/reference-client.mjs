@@ -1,18 +1,131 @@
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
-import { cp, mkdir, readFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const resources = dirname(fileURLToPath(import.meta.url))
 const metadata = JSON.parse(await readFile(join(resources, 'client.json'), 'utf8'))
+// Keep the data directory stable across Base releases. The embedded Base
+// integrity changes on update; using it as the directory name would create a
+// fresh Profile and make user-installed bundles disappear.
 const storageId = typeof metadata.storageId === 'string' && metadata.storageId.length > 0 ? metadata.storageId : metadata.id
 const appData = join(process.env.HOME ?? process.cwd(), 'Library', 'Application Support', 'DSH Stack', storageId)
 const profileDestination = join(appData, 'profiles', metadata.profile)
 const sourceProfile = join(resources, 'profile')
+const baseSnapshot = join(appData, 'base-profile')
+const lifecycleState = join(appData, 'distribution-state.json')
 await mkdir(join(appData, 'profiles'), { recursive: true })
-if (!existsSync(join(profileDestination, 'package.json'))) await cp(sourceProfile, profileDestination, { recursive: true })
+
+async function loadYamlModule() {
+  const candidates = [
+    join(resources, 'harness', 'node_modules', 'js-yaml', 'index.js'),
+    join(resources, 'harness', 'node_modules', 'js-yaml', 'dist', 'js-yaml.mjs'),
+  ]
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) continue
+    try {
+      const module = await import(pathToFileURL(candidate).href)
+      return module.default ?? module
+    } catch {
+      // Try the next deployed module layout; do not downgrade a conflict to PASS.
+    }
+  }
+  return undefined
+}
+
+async function writeLifecycleState() {
+  await writeFile(lifecycleState, JSON.stringify({
+    schemaVersion: 1,
+    distributionId: metadata.id,
+    baseVersion: metadata.baseVersion,
+    baseIntegrity: metadata.baseIntegrity,
+    profile: metadata.profile,
+  }, null, 2) + '\n', 'utf8')
+}
+
+async function readLifecycleState() {
+  try { return JSON.parse(await readFile(lifecycleState, 'utf8')) } catch { return undefined }
+}
+
+async function verifyCandidateProfile(candidateProfile) {
+  const root = join(appData, `.verify-${Date.now()}`)
+  const dshHome = join(root, 'dsh-home')
+  const profile = join(dshHome, 'profiles', metadata.profile)
+  await mkdir(join(dshHome, 'profiles'), { recursive: true })
+  await cp(candidateProfile, profile, { recursive: true, dereference: true })
+  const port = await availablePort()
+  const child = spawn(join(resources, 'node'), [join(resources, 'harness', 'lib', 'bin.js'), '--profile', metadata.profile, '--host', '127.0.0.1', '--port', String(port)], {
+    cwd: resources,
+    env: (() => {
+      const value = { ...process.env, DSH_HOME: dshHome, DSH_TELEMETRY_DISABLED: '1' }
+      for (const name of metadata.secrets) delete value[name]
+      return value
+    })(),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let diagnostics = ''
+  child.stdout.on('data', chunk => { diagnostics = (diagnostics + String(chunk)).slice(-4000) })
+  child.stderr.on('data', chunk => { diagnostics = (diagnostics + String(chunk)).slice(-4000) })
+  try {
+    await waitForWeb(`http://127.0.0.1:${port}`, child)
+  } catch (error) {
+    throw new Error(`UPDATE_VERIFY_FAILED: ${String(error)}\n${diagnostics}`)
+  } finally {
+    if (child.exitCode === null) child.kill('SIGTERM')
+    await rm(root, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+async function updateDerivedProfileIfNeeded() {
+  if (!existsSync(join(profileDestination, 'package.json'))) {
+    await cp(sourceProfile, profileDestination, { recursive: true, dereference: true })
+    await rm(baseSnapshot, { recursive: true, force: true }).catch(() => {})
+    await cp(sourceProfile, baseSnapshot, { recursive: true, dereference: true })
+    await writeLifecycleState()
+    return
+  }
+  const state = await readLifecycleState()
+  if (state?.baseIntegrity === metadata.baseIntegrity && existsSync(join(baseSnapshot, 'package.json'))) return
+  if (!existsSync(join(baseSnapshot, 'package.json'))) {
+    // A pre-lifecycle installation has no trustworthy old Base snapshot. Keep
+    // its working Profile intact and establish a baseline for the next update.
+    await cp(profileDestination, baseSnapshot, { recursive: true, dereference: true })
+    await writeLifecycleState()
+    return
+  }
+  const yaml = await loadYamlModule()
+  if (yaml === undefined) throw new Error('UPDATE_BLOCKED: the packaged Harness does not expose the safe YAML parser required for Profile Rebase')
+  const rebase = await import(pathToFileURL(join(resources, 'profile-rebase.mjs')).href)
+  const stagingRoot = join(appData, `.rebase-${Date.now()}`)
+  const candidateProfile = join(stagingRoot, 'profile')
+  try {
+    const report = await rebase.rebaseProfiles({ oldBase: baseSnapshot, current: profileDestination, newBase: sourceProfile, output: candidateProfile, yaml })
+    if (report.status !== 'PASS') throw new Error(`UPDATE_REBASE_CONFLICT: ${JSON.stringify(report.conflicts)}`)
+    // Dependency materialization remains Harness/pnpm-owned. Preserve the
+    // user's installed closure for the candidate; the official runtime will
+    // still prove the candidate before activation.
+    if (existsSync(join(profileDestination, 'node_modules'))) await cp(join(profileDestination, 'node_modules'), join(candidateProfile, 'node_modules'), { recursive: true, dereference: true })
+    await verifyCandidateProfile(candidateProfile)
+    const backup = `${profileDestination}.previous`
+    await rm(backup, { recursive: true, force: true }).catch(() => {})
+    await rename(profileDestination, backup)
+    try {
+      await rename(candidateProfile, profileDestination)
+    } catch (error) {
+      await rename(backup, profileDestination).catch(() => {})
+      throw error
+    }
+    await rm(baseSnapshot, { recursive: true, force: true })
+    await cp(sourceProfile, baseSnapshot, { recursive: true, dereference: true })
+    await writeLifecycleState()
+  } finally {
+    await rm(stagingRoot, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+await updateDerivedProfileIfNeeded()
 
 async function availablePort() {
   const server = createServer()

@@ -24,6 +24,10 @@ phase2-real-lock-proof-activation
 phase2-unbuilt-bundle-entry
 phase2-workspace-link
 phase2-generated-data-exclusion
+phase2-user-plugin-preservation
+phase2-rebase-conflict
+phase2-share-secret-isolation
+phase2-atomic-switch
 tampered-stack
 ```
 

@@ -35,6 +35,38 @@ Release 页面同时提供对应的 SHA-256 文件、verification receipt 和 pa
 
 API Key 由官方 Harness 凭据提供方保存。DSH Stack 不会打印或把 Key 写进 App。
 
+## App 截图
+
+以下截图来自真实的 `DeepSeek Desktop (Unofficial)` App 界面，只包含 App 内容，不包含桌面、菜单栏、浏览器界面或其他应用。
+
+<p align="center">
+  <img src="docs/images/deepseek-desktop-home.png" alt="DeepSeek Desktop 主界面" width="32%">
+  <img src="docs/images/deepseek-desktop-models.png" alt="DeepSeek Desktop Models 设置页" width="32%">
+  <img src="docs/images/deepseek-desktop-session.png" alt="DeepSeek Desktop 真实 Agent 会话" width="32%">
+</p>
+
+## 定制、升级和分享
+
+DeepSeek Desktop 将两类状态分开：
+
+```text
+Base Distribution（不可变）
++ 你的 Profile 修改 / 标准 DSH Bundle
+= Derived Working Profile
+```
+
+通过官方 Harness 安装标准 Bundle 后，就会形成 Derived Working Profile。之后 DeepSeek Desktop 更新必须把这个 Profile Rebase 到新 Base，不能直接替换整个 Profile，更不能静默删除你的 Bundle。DSH Stack 会先验证候选环境，再原子切换；如果变化无法确定合并，升级会被阻止，原来可用的 Profile 保留不动。
+
+普通用户分享配置的默认方式是无状态的 `.dshstack`，而不是再次生成一个完整 App：
+
+```text
+Share This Setup → Preflight → Secret Scan → Freeze → Verify → Pack
+```
+
+产物包含精确的 Profile 定义、Bundle 图、依赖版本、Integrity 和 Receipt；排除 API Key、Credentials、Sessions、Prompt、Response、个人文件、缓存和含有 Secret 的日志。接收方导入后仍走标准 Verify → Materialize → Run，并使用自己的用户数据。完整 `.app/.dmg` 仍是高级分享方式。
+
+这套生命周期不新增 Marketplace、Registry、评分系统、共享运行时或第二份 Plugin Manifest。Harness Profile-owned 文件仍然是唯一 Composition Source of Truth。
+
 ## 我应该下载哪个文件？
 
 在 Mac 上打开**苹果菜单 → 关于本机**：
@@ -56,6 +88,17 @@ API Key 由官方 Harness 凭据提供方保存。DSH Stack 不会打印或把 K
 | arm64 App 启动、Live Agent、非开发者 UAT | 等待 Apple Silicon 实机验证 |
 | Developer ID 签名、Hardened Runtime、公证、Stapling | 等待 Apple 外部凭据 |
 | Stable `v0.1.0` | 尚未发布 |
+
+### Phase 2 生命周期证据
+
+| 项目 | 状态 |
+|---|---|
+| 官方 Base Freeze → Runtime Verify | 2026-08-16 PASS（`0.1.0-rc.5`，commit `47f9438`） |
+| Maintainer Promote → Candidate Verify | 官方 Web Profile PASS |
+| `.dshstack` Pack → Import → Runtime Verify | 官方 Web Profile PASS |
+| 三方 Rebase、冲突阻断、原子切换 | 自动化回归测试和隔离 App runtime E2E PASS |
+| 用户 Bundle 添加后经 Rebase 保留 | 通用 Fixture PASS；真实第三方安装仍受上游 Harness 源码安装问题阻塞 |
+| 完整外部 clean-machine 生命周期 UAT | Pending |
 
 ## 开发者使用
 
@@ -108,6 +151,31 @@ pnpm dsh-stack run examples/reference --clean --harness ../deepseek-harness
 pnpm dsh-stack package examples/reference --harness ../deepseek-harness --size-report
 ```
 
+Phase 2 生命周期命令：
+
+```sh
+# 检测用户 Profile 漂移，不修改任何一方
+pnpm dsh-stack drift <old-base-profile> <current-profile> --json
+
+# 生成三方 Rebase 候选；冲突返回 UPDATE_REBASE_CONFLICT
+pnpm dsh-stack rebase <old-base-profile> <current-profile> <new-base-profile> \
+  --output ./artifacts/rebase-candidate-profile --report ./artifacts/rebase-report.json
+
+# 将已 Verify 的 Working Profile 手工 Promote 为新的 Candidate
+pnpm dsh-stack promote <verified-derived-stack> --output ./artifacts/base-candidate \
+  --distribution-version 0.2.0-rc
+
+# 默认分享/导入无状态 Stack
+pnpm dsh-stack pack <verified-derived-stack> --output ./setup.dshstack
+pnpm dsh-stack import ./setup.dshstack --output ./artifacts/imported
+pnpm dsh-stack verify ./artifacts/imported --harness ../deepseek-harness
+
+# 用明确的 Harness checkout 验证升级候选
+pnpm dsh-stack upgrade-verify <current-stack> ../deepseek-harness --json
+```
+
+`update` 是受保护的维护者/桌面升级原语：它先 Rebase、再真实 Runtime Verify，最后才切换 `--active <profile-directory>`；验证前不会覆盖当前 Profile。
+
 每个 App 只包含该 Stack 所需的精确 Harness 和 Profile 闭包，不包含其他 Profile、插件或共享运行时仓库。
 
 ## 文档
@@ -116,6 +184,7 @@ pnpm dsh-stack package examples/reference --harness ../deepseek-harness --size-r
 - [实施计划](IMPLEMENTATION_PLAN.md) —— Milestone 历史和工程决策
 - [Reference Distribution UAT](docs/reference-distribution-uat.md) —— 手工安装和用户测试
 - [Phase 2 Generalization](docs/phase-2-generalization.md) —— 外部 Profile 兼容性研究
+- [Phase 2 Lifecycle](docs/phase-2-lifecycle.md) —— Base/Derived/Rebase/Share 模型和证据边界
 - [Phase 2 Review](PHASE_2_REVIEW.md) —— PASS / FAIL / UNSUPPORTED 结论
 
 ## 安全边界

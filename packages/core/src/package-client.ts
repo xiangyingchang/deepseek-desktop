@@ -385,13 +385,26 @@ export async function packageStack(options: {
     packageTrace('copying Stack Profile, exact dependency closure, and receipt')
     await cp(materialized.profileDir, join(resources, 'profile'), { recursive: true, dereference: true })
     await copyFile(join(ASSET_ROOT, 'reference-client.mjs'), join(resources, 'reference-client.mjs'))
+    await copyFile(join(ASSET_ROOT, 'profile-rebase.mjs'), join(resources, 'profile-rebase.mjs'))
     await copyFile(join(ASSET_ROOT, 'Info.plist'), join(contents, 'Info.plist'))
     await copyFile(join(ASSET_ROOT, APP_ICON), join(resources, APP_ICON))
     await copyFile(join(options.stackRoot, 'stack.yaml'), join(resources, 'stack.yaml'))
+    try { await copyFile(join(options.stackRoot, 'distribution.yaml'), join(resources, 'distribution.yaml')) } catch { /* legacy Stack */ }
     await copyFile(join(options.stackRoot, 'stack.integrity.json'), join(resources, 'stack.integrity.json'))
     await copyFile(join(options.stackRoot, 'verification.receipt.json'), join(resources, 'verification.receipt.json'))
-    const storageId = `${stack.id}-${integrity.manifest.artifactHash.replace(/^sha256-/u, '').slice(0, 16)}`
-    await writeFile(join(resources, 'client.json'), JSON.stringify({ id: stack.id, storageId, profile: stack.harness.profile, secrets: stack.requirements.secrets }, null, 2) + '\n', 'utf8')
+    // The application data directory is keyed by stable distribution identity,
+    // not by the Base artifact hash. A new Base must rebase the existing
+    // Derived Profile instead of silently creating an empty profile.
+    const storageId = stack.id
+    await writeFile(join(resources, 'client.json'), JSON.stringify({
+      id: stack.id,
+      storageId,
+      baseVersion: stack.version,
+      baseIntegrity: integrity.manifest.artifactHash,
+      distributionKind: 'base',
+      profile: stack.harness.profile,
+      secrets: stack.requirements.secrets,
+    }, null, 2) + '\n', 'utf8')
     packageTrace(`compiling ${targetArch} Native Shell`)
     compileNativeShell(join(ASSET_ROOT, 'ReferenceShell.swift'), join(macos, APP_EXECUTABLE), targetArch)
     await chmod(join(macos, APP_EXECUTABLE), 0o755)

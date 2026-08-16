@@ -13,6 +13,7 @@ import {
   type StackManifest,
 } from './index.ts'
 import { SourceHarnessAdapter, currentPlatform } from './source-adapter.ts'
+import { distributionFromStack, writeDistributionManifest } from './distribution.ts'
 
 async function copyInputs(inputs: ProfileInspection['inputs'], destination: string): Promise<void> {
   for (const input of inputs) {
@@ -65,6 +66,7 @@ export interface FreezeResult {
   inspection: ProfileInspection
   preflight: PreflightResult
   manifest: StackManifest
+  distribution: import('./types.ts').DistributionManifest
   integrity: IntegrityManifest
   output: string
 }
@@ -77,6 +79,9 @@ export async function freezeProfile(options: {
   dshHome?: string
   cwd?: string
   force?: boolean
+  base?: import('./types.ts').DistributionManifest['base']
+  distributionKind?: import('./types.ts').DistributionManifest['kind']
+  distributionChannel?: import('./types.ts').DistributionManifest['channel']
 }): Promise<FreezeResult> {
   const adapter = new SourceHarnessAdapter()
   let installation: HarnessInstallation
@@ -119,6 +124,12 @@ export async function freezeProfile(options: {
     verification: { tests: ['./tests/smoke.yaml'] },
   }
   await writeFile(join(output, 'stack.yaml'), writeYaml(manifest), 'utf8')
+  const distribution = distributionFromStack(manifest, {
+    base: options.base,
+    kind: options.distributionKind ?? (options.base === undefined ? 'base' : 'derived'),
+    channel: options.distributionChannel ?? (options.base === undefined ? 'rc' : 'working'),
+  })
+  await writeDistributionManifest(output, distribution)
   await writeFile(join(testsDir, 'smoke.yaml'), writeYaml({
     mode: 'runtime',
     tests: [
@@ -128,5 +139,5 @@ export async function freezeProfile(options: {
     ],
   }), 'utf8')
   const integrity = await writeIntegrity(output)
-  return { installation, inspection, preflight, manifest, integrity, output }
+  return { installation, inspection, preflight, manifest, distribution, integrity, output }
 }

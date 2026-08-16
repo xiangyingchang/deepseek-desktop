@@ -1,0 +1,9 @@
+{
+  "kind": "phase2-rebase-conflict",
+  "expected": "UPDATE_REBASE_CONFLICT",
+  "assertions": [
+    "the same dependency changed by the user and the new Base is not guessed",
+    "no candidate is activated",
+    "the old active Profile remains usable"
+  ]
+}

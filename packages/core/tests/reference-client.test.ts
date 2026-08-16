@@ -5,6 +5,7 @@ import test from 'node:test'
 test('Reference Client embeds the official Web UI in a Native Shell', async () => {
   const shell = await readFile(new URL('../assets/ReferenceShell.swift', import.meta.url), 'utf8')
   const runtime = await readFile(new URL('../assets/reference-client.mjs', import.meta.url), 'utf8')
+  const rebase = await readFile(new URL('../assets/profile-rebase.mjs', import.meta.url), 'utf8')
   const info = await readFile(new URL('../assets/Info.plist', import.meta.url), 'utf8')
 
   assert.match(shell, /NSWindow/)
@@ -19,6 +20,10 @@ test('Reference Client embeds the official Web UI in a Native Shell', async () =
   assert.match(runtime, /--profile', metadata\.profile/u)
   assert.match(runtime, /storageId/u)
   assert.match(runtime, /delete runtimeEnvironment\[name\]/u)
+  assert.match(runtime, /UPDATE_REBASE_CONFLICT/u)
+  assert.match(runtime, /distribution-state\.json/u)
+  assert.match(rebase, /three-way rule/u)
+  assert.match(rebase, /UPDATE_REBASE_CONFLICT/u)
   assert.doesNotMatch(runtime, /process\.env\[name\]/u)
   assert.doesNotMatch(runtime, /\bopen\s*\(/u)
   assert.match(info, /<string>DeepSeek Desktop \(Unofficial\)<\/string>/u)

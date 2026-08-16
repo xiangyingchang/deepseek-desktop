@@ -1,0 +1,9 @@
+{
+  "kind": "phase2-share-secret-isolation",
+  "expected": "fail",
+  "errorCode": "USER_STATE_LEAK",
+  "assertions": [
+    "API keys, credentials, sessions, history, cache, and secret-bearing logs are excluded from .dshstack",
+    "Pack refuses a Stack that contains excluded user state"
+  ]
+}

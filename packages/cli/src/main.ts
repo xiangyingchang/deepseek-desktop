@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { cp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { basename, join, resolve } from 'node:path'
 import {
   EXIT_CODES,
   DshStackError,
@@ -8,6 +9,20 @@ import {
   absolutePath,
   freezeProfile,
   packageStack,
+  detectProfileDrift,
+  importShareableStack,
+  packShareableStack,
+  promoteDistribution,
+  rebaseProfiles,
+  rebaseStack,
+  resolveProfileInput,
+  verifyThenAtomicSwitch,
+  writeRebaseReport,
+  readDistributionManifest,
+  readStackManifest,
+  inspectHarnessUpgradeCandidate,
+  verifyHarnessUpgrade,
+  verifyIntegrity,
   runCleanStack,
   verifyStack,
   type Diagnostic,
@@ -31,6 +46,13 @@ Commands:
   verify <stack>          statically verify and reconstruct a Stack
   run <stack> --clean     reconstruct a Stack and keep the official Web UI open
   package <stack>         package a Runtime-PASS Stack as a macOS .app
+  drift <base> <current>  detect Profile-owned changes without mutating either Profile
+  rebase <old> <current> <new>  compute a three-way Profile rebase candidate
+  promote <stack>         manually promote a verified Working Profile to a Base Candidate
+  pack <stack>             create the default state-free .dshstack sharing artifact
+  import <archive>        inspect and extract a .dshstack for standard verification
+  update <old> <current> <new>  verify a rebased candidate, then atomically switch it
+  upgrade-verify <stack> <harness>  verify a Stack against an explicit Harness candidate
 
 Common options:
   --profile <name>        Profile name under DSH_HOME (default: web)
@@ -42,6 +64,10 @@ Common options:
 
 Freeze options:
   --output <path>         artifact directory (default: ./artifacts/<profile>)
+  --report <path>         machine-readable drift/rebase report
+  --active <path>         active Profile directory for an update switch
+  --distribution-version <version>  Candidate version for Promote
+  --base <stack>          Base Stack identity for a newly frozen Derived Profile
   --force                 record an inconsistent source as unverified; never bypasses secret detection
 
 Verify/run options:
@@ -57,12 +83,13 @@ Verify/run options:
 `
 
 interface ParsedArgs {
-  command: 'inspect' | 'freeze' | 'verify' | 'run' | 'package'
+  command: 'inspect' | 'freeze' | 'verify' | 'run' | 'package' | 'drift' | 'rebase' | 'promote' | 'pack' | 'import' | 'update' | 'upgrade-verify'
   profile: string
   harnessRoot?: string
   dshHome?: string
   output?: string
   stackRoot?: string
+  operands: string[]
   json: boolean
   force: boolean
   clean: boolean
@@ -75,6 +102,10 @@ interface ParsedArgs {
   signingIdentity?: string
   hardenedRuntime: boolean
   sizeReport: boolean
+  report?: string
+  activePath?: string
+  baseStack?: string
+  distributionVersion?: string
 }
 
 function optionValue(argv: readonly string[], index: number, flag: string): { value: string; next: number } {
@@ -88,9 +119,9 @@ export function parseArgs(argv: readonly string[]): ParsedArgs | 'help' | 'versi
   if (argv.length === 0 || argv.includes('--help') || argv.includes('-h')) return 'help'
   if (argv.includes('--version') || argv.includes('-V')) return 'version'
   const command = argv[0]
-  if (command !== 'inspect' && command !== 'freeze' && command !== 'verify' && command !== 'run' && command !== 'package') throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unknown command ${JSON.stringify(command)}`, action: 'Run dsh-stack --help to see the supported commands.' }, EXIT_CODES.invalidInput)
-  const parsed: ParsedArgs = { command, profile: 'web', json: false, force: false, clean: false, live: false, keepTemp: false, hardenedRuntime: false, sizeReport: false }
-  let positional: string | undefined
+  const validCommands = ['inspect', 'freeze', 'verify', 'run', 'package', 'drift', 'rebase', 'promote', 'pack', 'import', 'update', 'upgrade-verify'] as const
+  if (!validCommands.includes(command as typeof validCommands[number])) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unknown command ${JSON.stringify(command)}`, action: 'Run dsh-stack --help to see the supported commands.' }, EXIT_CODES.invalidInput)
+  const parsed: ParsedArgs = { command: command as ParsedArgs['command'], profile: 'web', operands: [], json: false, force: false, clean: false, live: false, keepTemp: false, hardenedRuntime: false, sizeReport: false }
   for (let index = 1; index < argv.length; index += 1) {
     const token = argv[index]!
     if (token === '--json') parsed.json = true
@@ -106,6 +137,14 @@ export function parseArgs(argv: readonly string[]): ParsedArgs | 'help' | 'versi
       const item = optionValue(argv, index, token); parsed.dshHome = item.value; index = item.next
     } else if (token === '--output') {
       const item = optionValue(argv, index, token); parsed.output = item.value; index = item.next
+    } else if (token === '--report') {
+      const item = optionValue(argv, index, token); parsed.report = item.value; index = item.next
+    } else if (token === '--active') {
+      const item = optionValue(argv, index, token); parsed.activePath = item.value; index = item.next
+    } else if (token === '--base') {
+      const item = optionValue(argv, index, token); parsed.baseStack = item.value; index = item.next
+    } else if (token === '--distribution-version') {
+      const item = optionValue(argv, index, token); parsed.distributionVersion = item.value; index = item.next
     } else if (token === '--host') {
       const item = optionValue(argv, index, token); parsed.host = item.value; index = item.next
     } else if (token === '--port') {
@@ -123,12 +162,16 @@ export function parseArgs(argv: readonly string[]): ParsedArgs | 'help' | 'versi
     } else if (token === '--hardened-runtime') parsed.hardenedRuntime = true
     else if (token === '--size-report') parsed.sizeReport = true
     else if (token.startsWith('--')) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unknown option ${token}`, action: 'Run dsh-stack --help to see the supported options.' }, EXIT_CODES.invalidInput)
-    else if (positional === undefined) positional = token
-    else throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unexpected argument ${token}`, action: 'Pass only one Stack path for verify/run.' }, EXIT_CODES.invalidInput)
+    else parsed.operands.push(token)
   }
-  parsed.stackRoot = positional
-  if ((command === 'verify' || command === 'run' || command === 'package') && positional === undefined) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `${command} requires a Stack path`, action: `Run dsh-stack ${command} <stack-path>.` }, EXIT_CODES.invalidInput)
-  if (command === 'run' && !parsed.clean) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: 'run requires --clean', action: 'Use run <stack> --clean so the disposable materialization is explicit.' }, EXIT_CODES.invalidInput)
+  parsed.stackRoot = parsed.operands[0]
+  const commandName = command!
+  const minimumOperands: Record<string, number> = { verify: 1, run: 1, package: 1, pack: 1, import: 1, promote: 1, drift: 2, rebase: 3, update: 3, 'upgrade-verify': 2 }
+  const required = minimumOperands[commandName] ?? 0
+  if (parsed.operands.length < required) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `${commandName} requires ${required} positional argument(s)`, action: `Run dsh-stack ${commandName} with the required paths.` }, EXIT_CODES.invalidInput)
+  if (parsed.operands.length > (commandName === 'drift' || commandName === 'upgrade-verify' ? 2 : commandName === 'rebase' || commandName === 'update' ? 3 : commandName === 'inspect' || commandName === 'freeze' ? 1 : 1)) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unexpected argument ${parsed.operands[parsed.operands.length - 1]}`, action: 'Pass only the paths documented by dsh-stack --help.' }, EXIT_CODES.invalidInput)
+  if (commandName === 'run' && !parsed.clean) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: 'run requires --clean', action: 'Use run <stack> --clean so the disposable materialization is explicit.' }, EXIT_CODES.invalidInput)
+  if (commandName === 'update' && parsed.activePath === undefined) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: 'update requires --active <profile-directory>', action: 'Pass the current active Profile directory; it is never replaced before verification.' }, EXIT_CODES.invalidInput)
   return parsed
 }
 
@@ -168,11 +211,131 @@ async function inspectCommand(args: ParsedArgs): Promise<number> {
   return preflight.status === 'CONSISTENT' ? EXIT_CODES.success : EXIT_CODES.failure
 }
 
+async function profileArgument(value: string): Promise<string> {
+  return resolveProfileInput(absolutePath(value))
+}
+
+async function driftCommand(args: ParsedArgs): Promise<number> {
+  const report = await detectProfileDrift(await profileArgument(args.operands[0]!), await profileArgument(args.operands[1]!))
+  if (args.report !== undefined) {
+    const path = absolutePath(args.report)
+    await mkdir(resolve(path, '..'), { recursive: true })
+    await writeFile(path, JSON.stringify(report, null, 2) + '\n', 'utf8')
+  }
+  if (args.json) console.log(JSON.stringify(report, null, 2))
+  else console.log(`DRIFT ${report.status}\nAdded: ${report.delta.added.length}\nRemoved: ${report.delta.removed.length}\nModified: ${report.delta.modified.length}`)
+  return EXIT_CODES.success
+}
+
+async function rebaseCommand(args: ParsedArgs): Promise<number> {
+  const output = absolutePath(args.output ?? './artifacts/rebase-candidate-profile')
+  const report = await rebaseProfiles({
+    oldBaseProfile: await profileArgument(args.operands[0]!),
+    currentProfile: await profileArgument(args.operands[1]!),
+    newBaseProfile: await profileArgument(args.operands[2]!),
+    outputProfile: output,
+  })
+  await writeRebaseReport(absolutePath(args.report ?? `${output}.rebase-report.json`), report)
+  if (args.json) console.log(JSON.stringify(report, null, 2))
+  else console.log(`REBASE ${report.status}\nCandidate: ${report.output ?? '(not written)'}\nUser Delta: +${report.delta.added.length} -${report.delta.removed.length} ~${report.delta.modified.length}${report.conflicts.length === 0 ? '' : `\nConflicts: ${report.conflicts.map(item => `${item.path} (${item.reason})`).join('; ')}`}`)
+  if (report.status !== 'PASS') throw new DshStackError({ code: 'UPDATE_REBASE_CONFLICT', stage: 'REBASE', message: `Distribution Rebase found ${report.conflicts.length} conflict(s)`, action: 'Review the rebase report; the current Profile was not changed.' })
+  return EXIT_CODES.success
+}
+
+async function baseReference(path: string): Promise<{ id: string; version: string; integrity: string }> {
+  const root = absolutePath(path)
+  const stack = await readStackManifest(root)
+  const integrity = await verifyIntegrity(root)
+  if (integrity.diagnostics.length > 0 || integrity.manifest === undefined) throw new DshStackError(integrity.diagnostics[0] ?? { code: 'STACK_INTEGRITY_ERROR', stage: 'STATIC_VERIFY', message: 'Base Stack integrity is invalid', action: 'Verify the Base Stack before deriving from it.' })
+  const distribution = await readDistributionManifest(root)
+  return { id: distribution?.id ?? stack.id, version: distribution?.version ?? stack.version, integrity: integrity.manifest.artifactHash }
+}
+
+async function promoteCommand(args: ParsedArgs): Promise<number> {
+  const source = absolutePath(args.operands[0]!)
+  const output = absolutePath(args.output ?? `${source}-candidate`)
+  const result = await promoteDistribution({ sourceStack: source, outputStack: output, version: args.distributionVersion })
+  if (args.json) console.log(JSON.stringify(result, null, 2))
+  else console.log(`PROMOTED\nCandidate: ${result.output}\nDistribution: ${result.manifest.kind} ${result.manifest.version}`)
+  return EXIT_CODES.success
+}
+
+async function packCommand(args: ParsedArgs): Promise<number> {
+  const stackRoot = absolutePath(args.operands[0]!)
+  const output = absolutePath(args.output ?? `${stackRoot}.dshstack`)
+  const result = await packShareableStack({ stackRoot, output })
+  if (args.json) console.log(JSON.stringify(result, null, 2))
+  else console.log(`PACKED\nShareable Stack: ${result.output}\nFiles: ${result.files.join(', ')}`)
+  return EXIT_CODES.success
+}
+
+async function importCommand(args: ParsedArgs): Promise<number> {
+  const archive = absolutePath(args.operands[0]!)
+  const defaultName = basename(archive).replace(/\.dshstack$/u, '')
+  const output = absolutePath(args.output ?? `./artifacts/imported-${defaultName}`)
+  const result = await importShareableStack({ archive, output })
+  if (args.json) console.log(JSON.stringify(result, null, 2))
+  else console.log(`IMPORTED\nStack: ${result.output}\nNext: dsh-stack verify ${result.output}`)
+  return EXIT_CODES.success
+}
+
+async function updateCommand(args: ParsedArgs): Promise<number> {
+  const output = absolutePath(args.output ?? `./artifacts/update-candidate-${Date.now()}`)
+  const reportPath = absolutePath(args.report ?? `${output}.rebase-report.json`)
+  const result = await rebaseStack({
+    oldBaseStack: absolutePath(args.operands[0]!),
+    currentDerivedStack: absolutePath(args.operands[1]!),
+    newBaseStack: absolutePath(args.operands[2]!),
+    outputStack: output,
+  })
+  await writeRebaseReport(reportPath, result.report)
+  if (result.report.status !== 'PASS' || result.candidateStack === undefined) throw new DshStackError({ code: 'UPDATE_REBASE_CONFLICT', stage: 'REBASE', message: `Update blocked: ${result.report.conflicts.length} Distribution Rebase conflict(s)`, action: `The active Profile was not changed. Review ${reportPath}.` })
+  const verification = await verifyStack({ stackRoot: result.candidateStack, harnessRoot: args.harnessRoot, dshHome: args.dshHome, cwd: process.cwd(), keepTemp: args.keepTemp, host: args.host, port: args.port })
+  if (verification.exitCode !== EXIT_CODES.success) throw new DshStackError(verification.receipt.diagnostics[0] ?? { code: 'VERIFICATION_INCOMPLETE', stage: 'SWITCH', message: `Candidate verification returned ${verification.receipt.verification.result.toUpperCase()}`, action: `The active Profile was not changed. Inspect ${verification.receiptPath}.` })
+  const candidateProfile = join(result.candidateStack, 'profile')
+  const switchCopy = `${absolutePath(args.activePath!)}.candidate-${Date.now()}`
+  await cp(candidateProfile, switchCopy, { recursive: true, dereference: true })
+  try {
+    await verifyThenAtomicSwitch({
+      candidateProfile: switchCopy,
+      activeProfile: absolutePath(args.activePath!),
+      verify: async () => ({ result: verification.receipt.verification.result }),
+    })
+  } finally {
+    await rm(switchCopy, { recursive: true, force: true }).catch(() => {})
+  }
+  if (args.json) console.log(JSON.stringify({ report: result.report, receipt: verification.receipt, active: absolutePath(args.activePath!) }, null, 2))
+  else console.log(`UPDATED\nActive Profile: ${absolutePath(args.activePath!)}\nCandidate Receipt: ${verification.receiptPath}\nOld Profile retained as: ${absolutePath(args.activePath!)}.previous`)
+  return EXIT_CODES.success
+}
+
+async function upgradeVerifyCommand(args: ParsedArgs): Promise<number> {
+  const candidate = await inspectHarnessUpgradeCandidate({ harnessRoot: absolutePath(args.operands[1]!), cwd: process.cwd() })
+  const result = await verifyHarnessUpgrade({
+    stackRoot: absolutePath(args.operands[0]!),
+    candidateHarnessRoot: candidate.root,
+    cwd: process.cwd(),
+    dshHome: args.dshHome,
+    host: args.host,
+    port: args.port,
+  })
+  if (args.json) console.log(JSON.stringify({ candidate: result.candidate, receipt: result.receipt, candidateStack: result.candidateStack }, null, 2))
+  else console.log(`UPGRADE CANDIDATE ${result.receipt.verification.result.toUpperCase()}\nHarness: ${result.candidate.version}${result.candidate.commit === undefined ? '' : ` (${result.candidate.commit})`}\nCandidate receipt: ${result.receiptPath}`)
+  return result.receipt.verification.result === 'pass' ? EXIT_CODES.success : result.receipt.verification.result === 'unsupported' ? EXIT_CODES.unsupported : EXIT_CODES.failure
+}
+
 async function main(argv = process.argv.slice(2)): Promise<number> {
   const parsed = parseArgs(argv)
   if (parsed === 'help') { console.log(HELP); return EXIT_CODES.success }
   if (parsed === 'version') { console.log(VERSION); return EXIT_CODES.success }
   if (parsed.command === 'inspect') return inspectCommand(parsed)
+  if (parsed.command === 'drift') return driftCommand(parsed)
+  if (parsed.command === 'rebase') return rebaseCommand(parsed)
+  if (parsed.command === 'promote') return promoteCommand(parsed)
+  if (parsed.command === 'pack') return packCommand(parsed)
+  if (parsed.command === 'import') return importCommand(parsed)
+  if (parsed.command === 'update') return updateCommand(parsed)
+  if (parsed.command === 'upgrade-verify') return upgradeVerifyCommand(parsed)
   if (parsed.live) {
     const d = { code: 'LIVE_VERIFICATION_UNSUPPORTED' as const, stage: 'LIVE_TEST' as const, message: 'Live verification is reserved and unsupported in V0.1; no LLM or external API call was made.', action: 'Use runtime verification for deterministic environment proof.' }
     if (parsed.json) console.log(JSON.stringify({ result: 'unsupported', diagnostics: [d] }, null, 2))
@@ -181,7 +344,8 @@ async function main(argv = process.argv.slice(2)): Promise<number> {
   }
   if (parsed.command === 'freeze') {
     const output = absolutePath(parsed.output ?? `./artifacts/${parsed.profile}`)
-    const result = await freezeProfile({ profile: parsed.profile, output, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), force: parsed.force })
+    const base = parsed.baseStack === undefined ? undefined : await baseReference(parsed.baseStack)
+    const result = await freezeProfile({ profile: parsed.profile, output, harnessRoot: parsed.harnessRoot, dshHome: parsed.dshHome, cwd: process.cwd(), force: parsed.force, base })
     if (parsed.json) console.log(JSON.stringify(result, null, 2))
     else console.log(`FROZEN\nArtifact: ${result.output}\nStack: ${result.manifest.id} ${result.manifest.version}\nHarness: ${result.installation.version}\nConsistency: ${result.manifest.source.consistency}\nIntegrity: ${result.integrity.artifactHash}`)
     return EXIT_CODES.success

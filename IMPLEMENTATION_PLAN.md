@@ -2,6 +2,8 @@
 
 > Authority: [`PRD.md`](PRD.md), DSH Stack PRD v2.3. This file maps the PRD to executable work; it does not redefine the product boundary.
 
+> Current plan status: Phase 2 lifecycle model is frozen and implementation is in progress. The historical M0–M8 records below remain evidence of the completed Freeze → Verify → Reproduce foundation; the lifecycle milestones in this section are the current acceptance plan.
+
 ## Frozen product boundary
 
 DSH Stack captures, verifies, reproduces, and eventually packages an existing DeepSeek Harness Profile. It does not implement a Harness runtime, Profile format, Plugin API, pnpm, dependency resolution, Agent Loop, Cordis, or the official Harness Web UI.
@@ -23,6 +25,65 @@ Official Harness Profile
 ```
 
 `verify` and `run --clean` must call the same `StackMaterializer`; the only difference is whether the materialized Harness process is tested and torn down or kept available to the user.
+
+## Phase 2 Lifecycle Plan — current authoritative milestones
+
+This plan implements the lifecycle model in PRD §140. It is deliberately ordered so that product objects and safety semantics exist before user-facing packaging. No milestone may add Profile-specific branches such as `if profile === X` or a second composition manifest.
+
+| Milestone | Task | Dependencies | Tests | Acceptance Criteria |
+|---|---|---|---|---|
+| M1 — Architecture Freeze | Lock Base Distribution, Derived Working Profile, Distribution Candidate, Shareable Stack, Profile source of truth, user-state boundary, and no-ecosystem-accumulation rule | Existing M0–M8 audit | Contract/document lint; model serialization tests | PRD and plan agree; `distribution.yaml` is release metadata only; no `bundledPlugins` duplicate |
+| M2 — State Model | Represent immutable Base, current Derived state, Candidate, receipts, active profile, and user-state roots | M1 | Schema, path-isolation, immutable-base tests | Base is addressable by exact identity; Derived points to Base and remains a standard Profile |
+| M3 — Drift Detection | Compare Base snapshot with current Profile and report user-owned Profile Delta without reading secrets | M2, HarnessAdapter/ProfileInspector | added/removed/modified input fixtures; generated/cache exclusion | Drift reports are deterministic and never mutates the working Profile |
+| M4 — Derived Verification | Run Preflight → Freeze/Materialize → Static/Runtime Verify on a Derived Profile and emit a Derived Receipt | M2–M3, shared pipeline | clean derived PASS, secret FAIL, tamper FAIL | Base Receipt is not reused as Derived PASS; receipt binds exact current state |
+| M5 — Distribution Rebase | Calculate `A = old Base`, `B = current Derived`, `C = new Base`, produce `C + User Delta` as a standard Profile | M3–M4 | additive plugin merge; config merge; lockfile/source fixtures | Rebase has no Harness composition logic and creates no alternate manifest |
+| M6 — Conflict Detection | Detect ambiguous same-file/plugin/version/delete-vs-required changes and return `UPDATE_REBASE_CONFLICT` | M5 | same plugin changed both sides; removed base plugin; lockfile conflict | No guessed merge; old working Profile remains untouched |
+| M7 — Verify-before-switch + Atomic Switch | Verify Candidate in a disposable materialization, then atomically activate it; preserve old Active on any failure | M4–M6 | verify fail, runtime fail, crash/interruption, rollback tests | Switch occurs only after PASS; failure leaves old environment usable |
+| M8 — Maintainer Promote | Add explicit manual Promote from Working Profile to Base Candidate; automatic detection never publishes | M2–M7 | promotion metadata, candidate receipt, no-auto-release test | Candidate is a new immutable Base input and has its own receipt |
+| M9 — Built-in Plugin Promotion E2E | Base v1 → maintainer installs C through official Harness → Drift → Verify → Promote → Base v2 RC | M8, real Harness | real/fixture plugin bundle E2E | C becomes built-in only through standard Freeze → Verify → Package |
+| M10 — User Plugin Preservation E2E | Base v1 + X/Y → Base v2 → Rebase → Verify → Atomic Switch | M7, M9 | X/Y survive; Base v2 additions present; state preservation | resulting Profile is exactly Base v2 + X/Y; no silent deletion |
+| M11 — Share This Setup | Add Preflight → Secret Scan → Freeze → Verify → Pack for current Derived Profile | M4, M7 | artifact contents, receipt, secret fixtures | `setup.dshstack` is self-contained and excludes user state/secrets |
+| M12 — Import `.dshstack` E2E | Inspect → Verify → Materialize → Run in a second Harness home; preserve recipient credentials/state | M11 | cross-home import, integrity/tamper, plugin graph and UI boot | imported Profile is standard Harness Profile; no special client path |
+| M13 — Standalone Package | Package a verified Derived Profile as advanced `.app/.dmg` through existing Package pipeline | M4, M7, M11 | package closure, no other Profile pollution, architecture tests | standalone artifact is optional and honest about ad-hoc/signing state |
+| M14 — User-state Regression | Prove credentials, compatible sessions, settings, workspace data and user plugins are not copied into share artifacts and survive update | M7, M10–M12 | state fixture, secret scan, upgrade regression | Distribution/Profile Definition remains separate from User State |
+| M15 — Upstream Watcher | Observe official Harness release/commit metadata and create an explicit Upgrade Candidate without auto-promoting Stable | M1, current Harness audit | current/unknown candidate, floating-ref and pin tests | watcher records evidence only; no master auto-upgrade |
+| M16 — Upgrade Candidate Verification | Verify current Base/Profile and Plugin compatibility against candidate Harness; return explicit PASS/FAIL/UNSUPPORTED | M4, M9, M15 | candidate pass/fail fixtures and receipt tests | exact Plugin/Profile cause is reported; no false compatibility PASS |
+| STOP AND REVIEW | Review all E2E evidence, receipts, size/closure boundaries, limitations and external UAT | M1–M16 | full regression suite and actual E2E rerun | produce `PHASE_2_REVIEW.md`; decide Phase 2 GO/NO-GO and whether Phase 3 Verification CI should start |
+
+### Shared pipeline invariant
+
+All lifecycle operations use the same generic seams:
+
+```text
+HarnessAdapter
+→ ProfileInspector / Preflight
+→ Freeze / StackMaterializer
+→ Integrity
+→ Verifier
+→ Receipt
+→ Rebase or Package
+```
+
+`verify` and `run --clean` continue to share one materialization pipeline. `Share This Setup`, Import, Promote, and Update may add orchestration, but they may not bypass the official Harness or create a second resolver, Plugin system, or runtime.
+
+### Phase 2 record requirements
+
+Each milestone record must include exactly:
+
+1. Implementation Summary
+2. Files Changed
+3. Architecture Decisions
+4. Tests Added
+5. Test Results
+6. Failure Fixtures Added
+7. Known Limitations
+8. Security Boundaries
+9. PRD Deviations (default: `None`)
+10. Readiness for Next Milestone
+
+The record must distinguish evidence from expectation. A fixture PASS is not a real Harness or Live Agent PASS; external UAT and credentials remain explicitly labelled when unavailable.
+
+The detailed execution record for M1–M16 is maintained in [`docs/phase-2-lifecycle-record.md`](docs/phase-2-lifecycle-record.md). M9, M10, M14, M15, M16 and STOP AND REVIEW intentionally retain `INCOMPLETE`/pending evidence where an external Harness install path, newer upstream version, clean machine, or Apple credential is required.
 
 ## Harness reality frozen by the initial audit
 

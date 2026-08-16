@@ -2,6 +2,51 @@
 
 Recorded **2026-08-16 Asia/Shanghai**. The compatibility matrix is the source of stage-level truth: [`docs/phase-2-compatibility-matrix.json`](docs/phase-2-compatibility-matrix.json).
 
+This file now contains two evidence layers: the earlier external Profile generalization review below, and the current lifecycle review in this section. The lifecycle review does not overwrite the earlier matrix or convert fixture evidence into Live Agent evidence.
+
+## Lifecycle model review — Base / Derived / Rebase / Share
+
+### Implemented generic capabilities
+
+- `distribution.yaml` carries release metadata only; it does not duplicate `dsh.profile.bundles`.
+- `DistributionManifest` distinguishes `derived`, `candidate`, and `base` lifecycle identity; Receipts record the lifecycle kind when present.
+- `dsh-stack drift` reports Profile-owned changes without mutating the working Profile.
+- `dsh-stack rebase` and `update` implement `A = old Base`, `B = current Derived`, `C = new Base`, with structured additive merge and explicit `UPDATE_REBASE_CONFLICT`.
+- Verify-before-switch and atomic directory switching retain `<active>.previous` when a candidate is accepted.
+- `dsh-stack promote` is manual and invalidates the old Receipt until the Candidate is verified.
+- `dsh-stack pack` / `import` make `.dshstack` the default state-free sharing path and enforce Integrity/Receipt binding plus secret/user-state exclusion.
+- Packaged App data uses stable distribution identity and embeds the generic runtime Rebase path; it no longer keys user data by Base artifact hash.
+- Explicit `upgrade-verify` inspects a supplied Harness checkout and verifies a disposable candidate Stack through the normal materializer.
+
+### Lifecycle E2E evidence actually completed
+
+| Case | Result | Boundary |
+|---|---|---|
+| Official Web Base Freeze → Runtime Verify | PASS | `0.1.0-rc.5`, commit `47f9438`, receipt hash `sha256-f6ceba54…f0902c` |
+| Maintainer Promote → Candidate Verify | PASS | Same official Profile, candidate metadata and new receipt |
+| `.dshstack` Pack → Import → Runtime Verify | PASS | Exact Integrity retained; state-free allowlist passed |
+| User/Base independent changes → Rebase → Runtime Verify → Atomic Switch | PASS | Real official Harness in isolated temp paths; both changes survived |
+| Same key changed by User/Base → conflict | PASS (blocked as designed) | `UPDATE_REBASE_CONFLICT`; old Profile unchanged |
+| Packaged App runtime Base update | PASS | Isolated HOME; official UI verified before switch; user marker and Base marker both present |
+| Packaged App runtime conflict | PASS (blocked as designed) | Process stopped before runtime; active Profile and previous backup preserved |
+| Automated lifecycle regression suite | PASS | 28/28 tests |
+
+### Lifecycle items not promoted to PASS
+
+- A real third-party Bundle installation through the official Harness command was attempted with `mario03690/dsh-netcafe` at `6873f2d`. The upstream source command hit a non-interactive production install/postinstall failure around `lefthook`; the local Harness dependency tree was restored with `pnpm install --frozen-lockfile`. This is recorded as an upstream Harness/source-install blocker, not a DSH Stack compatibility PASS.
+- The Bundle-addition merge is proven by generic regression fixtures, but the required external third-party Bundle Promotion and Live Agent path is `INCOMPLETE`.
+- `upgrade-verify` passed against the current same-version official checkout as an explicit candidate smoke; no distinct newer Harness version was available in this run.
+- No independent clean-machine test of an external Derived `.dshstack` has been completed.
+- Developer ID signing, Hardened Runtime, notarization, and stapling remain external Apple credential gates.
+
+### Lifecycle receipt sufficiency
+
+Receipts now distinguish Base/Candidate/Derived lifecycle kind and still bind exact Stack Integrity. They do not attempt to encode the entire User Delta or conflict resolution history; the Rebase report is separate evidence. A Base Receipt still does not prove a modified Derived Profile, and a `.dshstack` import still requires a new Verify.
+
+### Lifecycle package boundary
+
+The isolated lifecycle App package measured **396,867,072 bytes** for App Contents and contained only the exact official runtime plus the current Profile closure. The tested App contained no other Profile or global Plugin repository. This is a local lifecycle package measurement, not a replacement public Release asset.
+
 ## Cases tested
 
 Nine external repositories were researched and ten concrete Profile cases were exercised:
@@ -79,4 +124,4 @@ Phase 2: NO-GO
 Phase 3 Verification CI: NO-GO
 ```
 
-Reason: the generalized technical pipeline is working and has genuine PASS/FAIL/UNSUPPORTED evidence, but the Phase 2 user acceptance gate for an external Profile has not been completed. Do not enter Registry / Marketplace / Studio. The next valid action is an independent clean-machine Live Agent UAT for one packaged external Web Profile, followed by a review of the same receipts and matrix.
+Reason: the lifecycle core and official Vanilla E2E are working with genuine PASS/FAIL/CONFLICT evidence, but the Phase 2 acceptance gate still requires a real external Bundle Promotion/Live Agent path and independent clean-machine UAT. The upstream source-install blocker, absence of a distinct newer Harness candidate, and Apple release credentials remain explicit blockers. Do not enter Registry / Marketplace / Studio. The next valid action is to resolve the official Harness install/distribution boundary or test against an installed Harness release, then run one external `.dshstack` clean-machine Live Agent UAT.

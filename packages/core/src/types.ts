@@ -3,6 +3,8 @@ export type Stage =
   | 'INSPECT'
   | 'PREFLIGHT'
   | 'FREEZE'
+  | 'DRIFT'
+  | 'REBASE'
   | 'STATIC_VERIFY'
   | 'MATERIALIZE'
   | 'INSTALL'
@@ -10,6 +12,9 @@ export type Stage =
   | 'ACTIVATE'
   | 'CORE_TEST'
   | 'LIVE_TEST'
+  | 'PACK'
+  | 'SWITCH'
+  | 'UPSTREAM_VERIFY'
 
 /** The result vocabulary written to verification receipts. */
 export type VerificationResult = 'pass' | 'fail' | 'unsupported' | 'incomplete'
@@ -51,6 +56,12 @@ export type ErrorCode =
   | 'SMOKE_TEST_FAILED'
   | 'LIVE_VERIFICATION_UNSUPPORTED'
   | 'VERIFICATION_INCOMPLETE'
+  | 'DISTRIBUTION_SCHEMA_ERROR'
+  | 'UPDATE_REBASE_CONFLICT'
+  | 'ATOMIC_SWITCH_FAILED'
+  | 'SHARE_ARTIFACT_ERROR'
+  | 'USER_STATE_LEAK'
+  | 'UPSTREAM_CANDIDATE_UNVERIFIED'
   | 'INVALID_ARGUMENT'
   | 'INTERNAL_ERROR'
 
@@ -173,6 +184,30 @@ export interface StackManifest {
   verification: { tests: ['./tests/smoke.yaml'] }
 }
 
+/** Release metadata only; Profile composition never belongs here. */
+export interface DistributionManifest {
+  schemaVersion: 1
+  kind: 'base' | 'derived' | 'candidate'
+  id: string
+  version: string
+  channel: 'stable' | 'rc' | 'working'
+  harness: {
+    version: string
+    adapter: string
+    profile: string
+  }
+  profile: { source: './profile' }
+  base?: {
+    id: string
+    version: string
+    integrity: string
+  }
+  release: {
+    createdAt: string
+    createdBy: 'dsh-stack'
+  }
+}
+
 /** SHA-256 manifest for a Stack artifact, excluding itself and receipts. */
 export interface IntegrityManifest {
   schemaVersion: 1
@@ -220,6 +255,11 @@ export interface VerificationReceipt {
   profile: {
     name: string
     generatedFiles: string[]
+  }
+  /** Optional lifecycle identity; when absent this is a legacy Stack receipt. */
+  distribution?: {
+    kind: DistributionManifest['kind']
+    base?: DistributionManifest['base']
   }
   thirdPartyCodeExecuted: boolean
   externalServices: { llm: false; network: string[] }

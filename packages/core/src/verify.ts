@@ -12,10 +12,12 @@ import {
   type VerificationCheck,
   type VerificationReceipt,
   type VerificationResult,
+  type DistributionManifest,
 } from './index.ts'
 import { verifyIntegrity } from './integrity.ts'
 import { currentPlatform, SourceHarnessAdapter } from './source-adapter.ts'
 import { StackMaterializer, startOfficialWeb, type HarnessProcess } from './materializer.ts'
+import { readDistributionManifest } from './distribution.ts'
 
 function now(): string {
   return new Date().toISOString()
@@ -46,6 +48,7 @@ function receiptFor(options: {
   checks: VerificationCheck[]
   diagnostics: Diagnostic[]
   generatedFiles?: string[]
+  distribution?: DistributionManifest
 }): VerificationReceipt {
   const installation = options.installation
   const harness: VerificationReceipt['harness'] = {
@@ -72,6 +75,12 @@ function receiptFor(options: {
     },
     harness,
     profile: { name: options.profile, generatedFiles: options.generatedFiles ?? [] },
+    ...(options.distribution === undefined ? {} : {
+      distribution: {
+        kind: options.distribution.kind,
+        ...(options.distribution.base === undefined ? {} : { base: options.distribution.base }),
+      },
+    }),
     thirdPartyCodeExecuted: options.stages.some(stage => stage.stage === 'BOOT' && stage.status !== 'skipped'),
     externalServices: { llm: false, network: ['localhost Web UI readiness'] },
     stages: options.stages,
@@ -131,6 +140,28 @@ export async function verifyStack(options: {
     return { receipt, receiptPath: await persistReceipt(options.stackRoot, receipt), exitCode: 1 }
   }
 
+  let distribution: DistributionManifest | undefined
+  try {
+    distribution = await readDistributionManifest(options.stackRoot)
+    if (distribution !== undefined && (distribution.id !== manifest.id
+      || distribution.version !== manifest.version
+      || distribution.harness.version !== manifest.harness.version
+      || distribution.harness.adapter !== manifest.harness.adapter
+      || distribution.harness.profile !== manifest.harness.profile)) {
+      throw new Error('distribution metadata does not match stack.yaml identity or Harness pin')
+    }
+    checks.push(check('Distribution metadata', 'static.distribution', 'STATIC_VERIFY', 'pass', distribution === undefined ? 'Legacy Stack has no distribution metadata.' : `Distribution ${distribution.kind} metadata is valid.`))
+  } catch (error) {
+    const d = diagnostic('DISTRIBUTION_SCHEMA_ERROR', 'STATIC_VERIFY', `Invalid distribution.yaml: ${String(error)}`, {
+      action: 'Recreate lifecycle metadata with the current DSH Stack command; do not edit it into a second Plugin manifest.',
+    })
+    diagnostics.push(d)
+    checks.push(check('Distribution metadata', 'static.distribution', 'STATIC_VERIFY', 'fail', d.message))
+    addStage(stages, 'STATIC_VERIFY', 'failed', d.message)
+    const receipt = receiptFor({ startedAt, result: 'fail', integrity: integrity.manifest.artifactHash, id: manifest.id, version: manifest.version, profile: manifest.harness.profile, stages, checks, diagnostics })
+    return { receipt, receiptPath: await persistReceipt(options.stackRoot, receipt), exitCode: 1 }
+  }
+
   const adapter = new SourceHarnessAdapter()
   let installation: HarnessInstallation
   try {
@@ -170,7 +201,7 @@ export async function verifyStack(options: {
   if (diagnostics.length > 0) {
     addStage(stages, 'STATIC_VERIFY', 'failed', 'Static verification failed.')
     const result = diagnosticResult(diagnostics)
-    const receipt = receiptFor({ startedAt, result, integrity: integrity.manifest.artifactHash, id: manifest.id, version: manifest.version, installation, profile: manifest.harness.profile, stages, checks, diagnostics })
+    const receipt = receiptFor({ startedAt, result, integrity: integrity.manifest.artifactHash, id: manifest.id, version: manifest.version, installation, profile: manifest.harness.profile, stages, checks, diagnostics, distribution })
     return { receipt, receiptPath: await persistReceipt(options.stackRoot, receipt), exitCode: result === 'unsupported' ? 2 : 1 }
   }
   addStage(stages, 'STATIC_VERIFY', 'passed')
@@ -197,7 +228,7 @@ export async function verifyStack(options: {
     addStage(stages, 'CORE_TEST', 'passed')
     await harnessProcess.stop()
     if (options.keepTemp !== true) await environment.cleanup()
-    const receipt = receiptFor({ startedAt, result: 'pass', integrity: integrity.manifest.artifactHash, id: manifest.id, version: manifest.version, installation, profile: manifest.harness.profile, stages, checks, diagnostics, generatedFiles: ['cordis.yml'] })
+    const receipt = receiptFor({ startedAt, result: 'pass', integrity: integrity.manifest.artifactHash, id: manifest.id, version: manifest.version, installation, profile: manifest.harness.profile, stages, checks, diagnostics, generatedFiles: ['cordis.yml'], distribution })
     return { receipt, receiptPath: await persistReceipt(options.stackRoot, receipt), exitCode: 0 }
   } catch (error) {
     const d = asDiagnostic(error, stages.at(-1)?.stage ?? 'MATERIALIZE')
@@ -206,7 +237,7 @@ export async function verifyStack(options: {
     if (harnessProcess !== undefined) await harnessProcess.stop().catch(() => {})
     if (environment !== undefined && options.keepTemp !== true) await environment.cleanup().catch(() => {})
     const result = d.code === 'HARNESS_VERSION_UNAVAILABLE' || d.code === 'UNSUPPORTED_PLATFORM' ? 'unsupported' : 'fail'
-    const receipt = receiptFor({ startedAt, result, integrity: integrity.manifest.artifactHash, id: manifest.id, version: manifest.version, installation, profile: manifest.harness.profile, stages, checks, diagnostics })
+    const receipt = receiptFor({ startedAt, result, integrity: integrity.manifest.artifactHash, id: manifest.id, version: manifest.version, installation, profile: manifest.harness.profile, stages, checks, diagnostics, distribution })
     return { receipt, receiptPath: await persistReceipt(options.stackRoot, receipt), exitCode: result === 'unsupported' ? 2 : 1 }
   }
 }

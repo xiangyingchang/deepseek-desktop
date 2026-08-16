@@ -1,7 +1,7 @@
 # DeepSeek Harness Reproducible Distribution
 ## PRD v2.3 — Freeze · Prove · Reproduce · Package
 
-**状态：** MVP Architecture Freeze / Ready for Implementation  
+**状态：** Phase 2 Lifecycle Architecture Freeze / Implementation in Progress
 **日期：** 2026-08-15  
 **产品名称：** DeepSeek Desktop (Unofficial)
 **工程代号：** DSH Stack
@@ -3145,3 +3145,318 @@ STOP AND REVIEW
 ```
 
 Reference Client 是必做的端到端 Case，但不得绕过前面的核心能力。
+
+---
+
+# 140. Phase 2 Lifecycle Model (Authoritative)
+
+本章是当前 Phase 2 的产品 Contract，优先于此前只描述一次性 `Pack & Share` 或单一 Reference Client 的阶段性文字。它不改变 DSH Stack 的上位边界，而是把普通用户下载、定制、升级、验证和分享的完整生命周期正式纳入产品模型。
+
+## 140.1 不变的项目定位
+
+```text
+DeepSeek Harness = Composition
+DSH Stack = Reproducibility + Verification + Distribution
+DeepSeek Desktop = DSH Stack 的 First-party Distribution
+```
+
+责任边界继续锁定：
+
+| 组件 | 唯一职责 |
+|---|---|
+| DeepSeek Harness | Profile、Plugin、Bundle Composition、Agent Loop、官方 Web UI |
+| pnpm | Dependency Resolution、安装、锁文件语义 |
+| Profile | Composition Source of Truth |
+| DSH Stack | Freeze、Preflight、Proof、Reproduction、Receipt、Distribution、Upgrade Safety |
+| DeepSeek Desktop | 使用标准 Stack Pipeline 生成的 First-party Distribution |
+
+DSH Stack 不重新实现 Harness、Profile Format、Plugin API、Resolver、Package Manager、Agent Loop 或 Harness UI，也不创建第二套插件生态。用户只能通过 Harness 官方能力安装标准 DSH Bundle；这不是 Marketplace、Registry、Ratings 或 Recommendations。
+
+## 140.2 四种正式对象
+
+### Base Distribution
+
+发布者正式发布的不可变基线：
+
+```text
+Base Distribution
+= exact Harness
++ exact Profile
++ curated built-in plugins
++ Verification Receipt
+```
+
+例如 `DeepSeek Desktop v0.3.0`。Base Distribution 一经发布不可原地修改；任何内容变化都产生新的版本或 Candidate。其 Receipt 只证明这个 Base 的 exact runtime-relevant state，不证明用户后续的本地修改。
+
+### Derived Working Profile
+
+用户安装 DeepSeek Desktop 后，通过 Harness 官方能力安装自己的标准 DSH Bundle，或修改自己的 Profile 配置，得到：
+
+```text
+Base v0.3.0 + Plugin X + Plugin Y = Derived Working Profile
+```
+
+它仍然是一个标准 Harness Profile。不得发明 Desktop 专用 Plugin Layer Format。用户安装自定义 Plugin 后形成 Derived Working Profile；DeepSeek Desktop 更新不得静默覆盖用户自定义 Plugin。
+
+### Distribution Candidate
+
+维护者自己的 Working Profile 经过人工 Promotion 后，沿标准链路生成新的 Base 候选：
+
+```text
+Working Profile
+↓ Promote (manual)
+Freeze → Verify → Package
+↓
+Distribution Candidate
+```
+
+安装 Plugin、检测 Drift 或自动 Compatibility Verification 都不得自动发布 Stable。Promotion 和 Stable publication 继续由维护者人工决定。
+
+### Shareable Stack
+
+任何用户都可以把 Derived Working Profile 分享为标准 `.dshstack`：
+
+```text
+Current Derived Profile
+↓ Preflight
+↓ Secret Scan
+↓ Freeze
+↓ Verify
+↓ Receipt
+↓ Pack
+setup.dshstack
+```
+
+`.dshstack` 是默认分享方式。它表达 exact Profile Definition、Plugin Graph、Dependency versions、Integrity 和可选 Receipt，而不是再次生成一个 150MB+ 的完整 App。接收方必须使用官方 Harness 和 DSH Stack 标准流程 `Inspect → Verify → Materialize → Run`，不得绕过 Pipeline。
+
+Standalone `.app/.dmg` 仍可作为高级分享方式，但涉及 runtime duplication、签名、notarization、较大体积和更新所有权；没有 Apple Developer 凭证生成的本地/ad-hoc artifact 不得伪装成正式 notarized distribution。当前不做 Hosted Builder。
+
+## 140.3 Profile 是唯一 Composition Source of Truth
+
+Plugin Composition 只能来自 Harness Profile-owned inputs：
+
+```text
+package.json
+dsh.profile.bundles
+pnpm-lock.yaml (如果该 Profile 有外部依赖)
+pnpm-workspace.yaml
+cordis.patch.yml
+```
+
+如果存在 `distribution.yaml`，它只能表达：
+
+```text
+distribution identity
+version
+release channel
+exact Harness pin
+Profile source
+release metadata
+```
+
+它不得维护 `bundledPlugins` 或任何第二份 Plugin Manifest。准确关系是：
+
+```text
+Profile = Composition
+Stack = Reproducibility Artifact
+Receipt = Proof of exact state
+Distribution Manifest = Release Metadata only
+```
+
+## 140.4 Base + User Delta 与 Distribution Rebase
+
+App 更新不得执行 `replace entire Profile`。更新使用通用的 Distribution Upgrade Primitive：
+
+```text
+A = Old Base Distribution
+B = Current Derived Working Profile
+C = New Base Distribution
+
+User Delta = A → B
+Candidate = C + User Delta
+```
+
+Rebase 只负责检查 Profile-owned inputs 的三方变化、计算用户 Delta、检测冲突并产生另一个有效的标准 Harness Profile；它不是新的 Composition Engine，不解析或替代 pnpm，也不维护第二个 Plugin Graph。它应复用：
+
+```text
+HarnessAdapter
+ProfileInspector
+Preflight
+StackMaterializer
+Integrity
+Verifier
+Receipt
+```
+
+能确定的变化可以自动合并。例如用户新增 X，而新 Base 新增 C，结果是 `C + X`。需要猜用户意图的变化必须返回 `UPDATE_REBASE_CONFLICT`，例如同一 Plugin 被用户和新 Base 改成不同版本，或用户删除了新 Base 仍要求的 Plugin。第一版可以阻止升级，不需要猜测或复杂 Conflict UI。
+
+## 140.5 Verify-before-switch、Atomic Switch 与失败保留
+
+正式更新流程固定为：
+
+```text
+New Base available
+↓
+Load Old Base
+↓
+Inspect Current Working Profile
+↓
+Compute User Delta
+↓
+Rebase onto New Base
+↓
+Produce Candidate Profile
+↓
+Static Verify
+↓
+Runtime Verify
+↓ PASS
+Atomic Switch
+```
+
+Candidate 必须在临时目录中生成和验证。切换前不得修改当前有效 Profile；只有全部必需验证 PASS 后，才以同一文件系统内的原子目录替换或等价可回滚操作切换 Active Profile。任何 FAIL、UNSUPPORTED、INCOMPLETE 或 `UPDATE_REBASE_CONFLICT` 都必须保留旧的可用环境，并返回明确诊断。
+
+## 140.6 Receipt 语义
+
+状态模型至少区分：
+
+```text
+Base Distribution              Verified ✅
+Local Customization            + X + Y
+Current Derived Environment    Modified / Unverified
+```
+
+对 Derived Profile 再次运行标准 Verify 后，才可显示：
+
+```text
+Current Derived Environment    Locally Verified ✅
+```
+
+并产生 Derived Receipt。每个 Receipt 必须绑定 exact runtime-relevant state（Profile inputs、依赖锁定状态、Harness pin、Integrity、平台和验证级别）。Base Receipt 不得自动被解释为 Derived Environment 的验证证明；任何用户修改都不能继承一个不再匹配的 PASS。
+
+## 140.7 User State Isolation
+
+```text
+Distribution / Profile Definition ≠ User State
+```
+
+User State 包括 credentials、sessions、conversation history、preferences 和 workspace data。Freeze、Verify、Rebase、Pack 和 Package 均不得把 User State 带入 Distribution Artifact。升级必须尽可能保留 credentials、兼容的 sessions、user settings 和 user plugins；如果兼容性无法证明，必须明确阻止或要求迁移，不能静默丢失。
+
+Shareable Stack 默认必须排除：
+
+```text
+API keys
+credentials
+sessions
+prompt history
+responses
+personal files
+cache
+logs containing secrets
+```
+
+Secret Scan 失败时不得通过 `--force` 绕过。
+
+## 140.8 Maintainer 与普通用户路径
+
+维护者路径：
+
+```text
+Released Base
+↓
+Working Profile
+↓
+安装 / 测试新 Plugin
+↓
+Drift Detection
+↓
+Compatibility Verification
+↓
+人工 Promote
+↓
+Freeze → Verify → Package
+↓
+New Base RC → Test → Release
+```
+
+普通用户路径：
+
+```text
+Download DeepSeek Desktop
+↓
+Install
+↓
+Configure API Key
+↓
+进入官方 Harness Web UI
+↓
+通过 Harness 官方能力安装 Plugin X/Y
+↓
+继续使用
+↓
+收到新 Base
+↓
+Rebase → Verify → Atomic Switch
+↓
+Base v2 + X + Y
+```
+
+分享路径：
+
+```text
+Base + X/Y
+↓ Share This Setup
+↓ setup.dshstack
+↓ 发送给朋友
+↓ Inspect → Verify → Materialize → Run
+↓
+相同 Profile / Plugin 环境，独立 Credentials / Sessions / User Data
+```
+
+## 140.9 Upstream Upgrade Verification
+
+DeepSeek Harness 新版本必须经过：
+
+```text
+Upstream Watcher
+↓
+Upgrade Candidate
+↓
+Current Base/Profile Verification
+↓
+Plugin Compatibility Verification
+↓
+PASS / FAIL
+```
+
+Stable 不自动追踪 `master`。可选 Canary 只能提供早期兼容性信号；通过后进入 `Ready for Promotion`，失败必须指出 exact Plugin / Profile cause。
+
+## 140.10 Phase 2 禁止范围
+
+本阶段明确不做：
+
+```text
+Marketplace
+Registry
+Ratings / Recommendations
+Social sharing platform
+Hosted Builder
+Shared Runtime Manager
+Studio
+Auto-publish Stable
+```
+
+这不限制用户通过 Harness 官方能力安装标准 DSH Bundle，也不限制用户生成和传递自己的 `.dshstack`。
+
+## 140.11 Phase 2 Zero False PASS 验收
+
+Phase 2 必须实际证明：
+
+1. Maintainer Plugin Promotion：安装新 Plugin → Drift → Verify → Promote → 新 Base Candidate。
+2. User Plugin Preservation：Base v1 + X/Y 更新到 Base v2 后得到 Base v2 + X/Y。
+3. Conflict Safety：冲突返回 `UPDATE_REBASE_CONFLICT`，旧环境保持可用。
+4. Share This Setup：Derived Profile → `.dshstack` → 另一环境 Import → 相同 Plugin Graph 可用。
+5. Secret Isolation：分享 Artifact 不含真实 API Key、Session 或个人数据。
+6. Upstream Upgrade：Harness Candidate 得到明确 PASS/FAIL，不把未验证兼容性标成 PASS。
+
+任何没有真实执行证据的项目必须保持 `FAIL`、`UNSUPPORTED` 或 `INCOMPLETE`，不得因为 Fixture 或静态分析而伪造 Live Agent PASS。

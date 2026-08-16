@@ -1,0 +1,10 @@
+{
+  "kind": "phase2-user-plugin-preservation",
+  "expected": "PASS",
+  "assertions": [
+    "Base v1 plus user bundles X/Y rebases onto Base v2 without replacing the Profile",
+    "new Base bundles remain present",
+    "user dependency versions and bundle declarations remain present",
+    "candidate is verified before atomic switch"
+  ]
+}
