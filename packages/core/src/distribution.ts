@@ -14,6 +14,12 @@ function requiredString(value: unknown, field: string): string {
   return value
 }
 
+export function stableStorageId(value: unknown, field = 'storageId'): string {
+  const text = requiredString(value, field)
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(text)) throw new Error(`${field} must be a safe stable path component`)
+  return text
+}
+
 /** Read release metadata without treating it as a second Profile manifest. */
 export async function readDistributionManifest(root: string): Promise<DistributionManifest | undefined> {
   let value: unknown
@@ -29,6 +35,7 @@ export async function readDistributionManifest(root: string): Promise<Distributi
   if (object.channel !== 'stable' && object.channel !== 'rc' && object.channel !== 'working') throw new Error(`${DISTRIBUTION_FILE} channel is invalid`)
   requiredString(object.id, `${DISTRIBUTION_FILE} id`)
   requiredString(object.version, `${DISTRIBUTION_FILE} version`)
+  if (object.storageId !== undefined) stableStorageId(object.storageId, `${DISTRIBUTION_FILE} storageId`)
   const harness = asYamlObject(object.harness, `${DISTRIBUTION_FILE} harness`)
   requiredString(harness.version, `${DISTRIBUTION_FILE} harness.version`)
   requiredString(harness.adapter, `${DISTRIBUTION_FILE} harness.adapter`)
@@ -56,6 +63,7 @@ export async function writeDistributionManifest(root: string, manifest: Distribu
 export function distributionFromStack(stack: StackManifest, options: {
   kind?: DistributionManifest['kind']
   channel?: DistributionManifest['channel']
+  storageId?: string
   base?: DistributionManifest['base']
   createdAt?: string
 } = {}): DistributionManifest {
@@ -67,6 +75,7 @@ export function distributionFromStack(stack: StackManifest, options: {
     id: stack.id,
     version: stack.version,
     channel,
+    ...(options.storageId === undefined ? {} : { storageId: stableStorageId(options.storageId) }),
     harness: {
       version: stack.harness.version,
       adapter: stack.harness.adapter,
@@ -126,6 +135,7 @@ export async function promoteDistribution(options: {
   const manifest = distributionFromStack(stack, {
     kind: 'candidate',
     channel: 'rc',
+    storageId: sourceDistribution?.storageId ?? sourceStack.id,
     base: { id: sourceDistribution?.id ?? sourceStack.id, version: sourceDistribution?.version ?? sourceStack.version, integrity: integrity.manifest.artifactHash },
   })
   await writeDistributionManifest(output, manifest)

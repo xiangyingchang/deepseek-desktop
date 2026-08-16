@@ -32,7 +32,7 @@ test('unknown flags and live verification are explicit', () => {
 })
 
 test('package accepts an explicit native architecture and runtime controls', () => {
-  const args = parseArgs(['package', 'reference', '--arch', 'arm64', '--node-runtime', '/tmp/node-arm64', '--signing-identity', 'Developer ID Application: Example', '--hardened-runtime', '--size-report'])
+  const args = parseArgs(['package', 'reference', '--arch', 'arm64', '--node-runtime', '/tmp/node-arm64', '--signing-identity', 'Developer ID Application: Example', '--hardened-runtime', '--app-version', '0.2.0-rc.1', '--update-manifest-url', 'https://example.com/update.json', '--update-channel', 'rc', '--size-report'])
   assert.notEqual(args, 'help')
   assert.notEqual(args, 'version')
   if (args === 'help' || args === 'version') return
@@ -41,6 +41,9 @@ test('package accepts an explicit native architecture and runtime controls', () 
   assert.equal(args.nodeRuntime, '/tmp/node-arm64')
   assert.equal(args.signingIdentity, 'Developer ID Application: Example')
   assert.equal(args.hardenedRuntime, true)
+  assert.equal(args.appVersion, '0.2.0-rc.1')
+  assert.equal(args.updateManifestURL, 'https://example.com/update.json')
+  assert.equal(args.updateChannel, 'rc')
   assert.equal(args.sizeReport, true)
 })
 

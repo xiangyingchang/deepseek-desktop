@@ -14,6 +14,7 @@ export type Stage =
   | 'LIVE_TEST'
   | 'PACK'
   | 'SWITCH'
+  | 'UPDATE_CHECK'
   | 'UPSTREAM_VERIFY'
 
 /** The result vocabulary written to verification receipts. */
@@ -59,6 +60,11 @@ export type ErrorCode =
   | 'DISTRIBUTION_SCHEMA_ERROR'
   | 'UPDATE_REBASE_CONFLICT'
   | 'ATOMIC_SWITCH_FAILED'
+  | 'UPDATE_MANIFEST_INVALID'
+  | 'UPDATE_ASSET_MISSING'
+  | 'UPDATE_LOCKED'
+  | 'UPDATE_RECOVERY_FAILED'
+  | 'USER_STATE_CHANGED_DURING_UPDATE'
   | 'SHARE_ARTIFACT_ERROR'
   | 'USER_STATE_LEAK'
   | 'UPSTREAM_CANDIDATE_UNVERIFIED'
@@ -191,6 +197,8 @@ export interface DistributionManifest {
   id: string
   version: string
   channel: 'stable' | 'rc' | 'working'
+  /** Stable User State directory identity; never derive this from Base integrity. */
+  storageId?: string
   harness: {
     version: string
     adapter: string
@@ -206,6 +214,29 @@ export interface DistributionManifest {
     createdAt: string
     createdBy: 'dsh-stack'
   }
+}
+
+/** Release metadata consumed by an App updater; never a Profile manifest. */
+export interface DistributionUpdateManifest {
+  schemaVersion: 1
+  distributionId: string
+  channel: 'stable' | 'rc'
+  appVersion: string
+  baseVersion: string
+  baseIntegrity: string
+  harnessVersion: string
+  minimumMacOS: string
+  assets: DistributionUpdateAsset[]
+  releaseNotesUrl?: string
+  publishedAt?: string
+}
+
+export interface DistributionUpdateAsset {
+  arch: 'x64' | 'arm64'
+  url: string
+  sha256: string
+  bytes?: number
+  receiptUrl?: string
 }
 
 /** SHA-256 manifest for a Stack artifact, excluding itself and receipts. */
@@ -259,6 +290,7 @@ export interface VerificationReceipt {
   /** Optional lifecycle identity; when absent this is a legacy Stack receipt. */
   distribution?: {
     kind: DistributionManifest['kind']
+    storageId?: string
     base?: DistributionManifest['base']
   }
   thirdPartyCodeExecuted: boolean

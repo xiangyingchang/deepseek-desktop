@@ -79,6 +79,7 @@ function receiptFor(options: {
     ...(options.distribution === undefined ? {} : {
       distribution: {
         kind: options.distribution.kind,
+        ...(options.distribution.storageId === undefined ? {} : { storageId: options.distribution.storageId }),
         ...(options.distribution.base === undefined ? {} : { base: options.distribution.base }),
       },
     }),

@@ -85,3 +85,38 @@ The following evidence was actually executed against the local official Harness 
 | Automated lifecycle tests | PASS | 31/31 tests, including CLI lifecycle parsing, additions, conflicts, Receipt gating, symlink rejection, dependency-closure preservation, archive import, and rollback |
 
 The App runtime checks used an isolated temporary `HOME` and a locally generated test mutation; they are not a clean-machine UAT or a claim that the public Release has been replaced. The live third-party Bundle installation attempt used the real `mario03690/dsh-netcafe` commit `6873f2d` and was blocked inside the official source Harness command by its non-interactive production install/postinstall path (`lefthook` missing before dependency restoration). That remains an upstream Harness/source-install blocker, not a DSH Stack PASS.
+
+## User Data Preservation and Update Transactions
+
+The Profile-level Rebase proof above is not by itself an App update proof. A formal user update must preserve the whole working environment, not only `profiles/<name>`:
+
+```text
+Stable Distribution Storage Identity
+├── official Harness DSH_HOME state
+├── current Derived Profile
+├── immutable Base snapshots
+├── update transaction journal
+└── recovery backups
+```
+
+The existing `~/Library/Application Support/DSH Stack/<stable-id>/` root remains the compatibility location for released users. `storageId` must be read identically by the Native Shell and the embedded runtime; App version, Base integrity, Harness version, and the public brand name must never create a new User State root.
+
+The update transaction is:
+
+```text
+Verify update metadata
+→ stage new App/Base
+→ acquire the User State lock
+→ capture a value-free User State fingerprint
+→ Rebase A(old Base) + B(current Derived) onto C(new Base)
+→ Runtime Verify in disposable DSH_HOME
+→ write durable recovery journal
+→ atomic Profile/App switch
+→ first-launch Health Check
+→ assert User State fingerprint unchanged
+→ commit and retain rollback
+```
+
+Credentials, sessions, history, preferences, and workspace data are never Profile inputs and are never copied into a Stack, `.dshstack`, or App artifact. A schema migration must be copy-on-write and reversible. A conflict, Verify failure, corrupted download, wrong architecture, interrupted process, or failed Health Check must leave the old App, old Profile, and User State usable. Profile `.previous` is not a substitute for App rollback.
+
+The current implementation status is intentionally `INCOMPLETE` for Stable until M17–M22 in [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) pass signed-release, clean-machine, and real user-state evidence. M17–M21 now have local implementation and regression evidence: the published Reference storage identity is kept at `dsh-web-5590c2a0cb00b3a7`, the App updater rejects a live Runtime lock, binds candidate Receipt/Integrity metadata, stages against disposable managed state, retains the old App, and commits only after first-launch Web UI health. M22 remains limited to representative local state fixtures and an isolated x86_64 App pair; it does not claim real user-owned Harness session/history migration.

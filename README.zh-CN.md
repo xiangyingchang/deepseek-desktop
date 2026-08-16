@@ -35,6 +35,8 @@ Release 页面同时提供对应的 SHA-256 文件、verification receipt 和 pa
 6. 创建一个 Web session，发送一条消息。
 7. 如果 Key 不正确，回到同一个 Models 页面替换并保存，然后重试，不需要重启 App。
 
+升级 RC 时，使用 **DeepSeek Desktop → Check for Updates…**。下载并打开 DMG 后，选择 **Install Update…**，再选择新下载的 `.app`；事务开始前会先停止当前 Runtime。如果候选 App 验证失败，旧 App 和 User State 会保留。公开 v10 App 还没有这个菜单，因此需要先安装一次包含本次修复的新构建。
+
 API Key 由官方 Harness 凭据提供方保存。DSH Stack 不会打印或把 Key 写进 App。
 
 ## App 截图
@@ -58,6 +60,10 @@ Base Distribution（不可变）
 ```
 
 通过官方 Harness 安装标准 Bundle 后，就会形成 Derived Working Profile。之后 DeepSeek Desktop 更新必须把这个 Profile Rebase 到新 Base，不能直接替换整个 Profile，更不能静默删除你的 Bundle。DSH Stack 会先验证候选环境，再原子切换；如果变化无法确定合并，升级会被阻止，原来可用的 Profile 保留不动。
+
+App 本体更新是另一条受事务保护的流程。稳定的 Distribution Storage Identity 会把官方 Harness 的凭证、会话、历史记录、偏好、工作区数据和 Derived Profile 保存在不可变 App 包之外。新 App/Base 必须先下载到 staging 并完成验证，之后才能切换；冲突、验证失败、进程中断或新 App 首次启动失败时，旧 App 和 User State 必须继续可用。当前 x86_64 本机旧 App → 新 App 事务链已用隔离环境验证。当前 RC 提供检查/下载和明确的 **Install Update…** 事务入口；可信公开自动安装仍等待 Developer ID 签名、notarization、公开资产/下载校验和独立 clean-machine 回滚验证完成。
+
+维护者必须在同一条 Distribution 的每个版本中保持 `distribution.yaml` 的 `storageId` 不变。公开 Reference Release 继续使用旧版本的 `dsh-web-5590c2a0cb00b3a7`；擅自改变它会产生一个空的用户数据目录。
 
 普通用户分享配置的默认方式是无状态的 `.dshstack`，而不是再次生成一个完整 App：
 
@@ -189,6 +195,7 @@ pnpm dsh-stack upgrade-verify <current-stack> ../deepseek-harness --json
 - [Reference Distribution UAT](docs/reference-distribution-uat.md) —— 手工安装和用户测试
 - [Phase 2 Generalization](docs/phase-2-generalization.md) —— 外部 Profile 兼容性研究
 - [Phase 2 Lifecycle](docs/phase-2-lifecycle.md) —— Base/Derived/Rebase/Share 模型和证据边界
+- [Update Manifest 示例](docs/update-manifest.example.json) —— 按架构发布更新检查元数据的格式
 - [Phase 2 Review](PHASE_2_REVIEW.md) —— PASS / FAIL / UNSUPPORTED 结论
 
 ## 安全边界

@@ -1,0 +1,10 @@
+{
+  "kind": "update-transaction-interrupted",
+  "expected": "recovered",
+  "failureGuard": "UPDATE_RECOVERY_FAILED must never be emitted for a recoverable interrupted transaction",
+  "assertions": [
+    "an interrupted Profile/Base/lifecycle switch is detected from the durable Journal",
+    "the old App-owned Profile state is restored before the next Runtime launch",
+    "User State remains outside the recovery mutation set"
+  ]
+}

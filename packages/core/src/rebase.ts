@@ -479,6 +479,7 @@ export async function rebaseStack(options: {
   await writeDistributionManifest(options.outputStack, distributionFromStack(nextStack, {
     kind: 'derived',
     channel: 'working',
+    storageId: currentDistribution?.storageId ?? currentStack.id,
     base,
   }))
   await writeIntegrity(options.outputStack)

@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url'
 import {
   DshStackError,
   diagnostic,
+  readDistributionManifest,
   readStackManifest,
+  stableStorageId,
   type HarnessInstallation,
   type VerificationRun,
 } from './index.ts'
@@ -57,6 +59,24 @@ interface PackageManifest {
   dependencies?: unknown
   optionalDependencies?: unknown
   peerDependencies?: unknown
+}
+
+function xmlEscape(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;')
+}
+
+function updateManifestUrl(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:') throw new Error('not HTTPS')
+    return url.href
+  } catch {
+    throw new DshStackError(diagnostic('INVALID_ARGUMENT', 'MATERIALIZE', `Update Manifest URL must be HTTPS: ${value}`, {
+      component: 'updateManifestURL',
+      action: 'Pass an HTTPS URL or omit the update feed for a manually distributed RC.',
+    }), 3)
+  }
 }
 
 function dependencyNames(manifest: PackageManifest): string[] {
@@ -283,6 +303,7 @@ export interface PackageResult {
   harnessVersion: string
   platform: { os: string; arch: string }
   signing: SigningResult
+  appVersion: string
   sizeReport?: PackageSizeReport
   sizeReportPath?: string
 }
@@ -299,9 +320,16 @@ export async function packageStack(options: {
   signingIdentity?: string
   hardenedRuntime?: boolean
   sizeReport?: boolean
+  appVersion?: string
+  updateManifestURL?: string
+  updateChannel?: 'stable' | 'rc'
   verify: () => Promise<VerificationRun>
 }): Promise<PackageResult> {
   const stack = await readStackManifest(options.stackRoot)
+  const distribution = await readDistributionManifest(options.stackRoot)
+  const appVersion = options.appVersion ?? stack.version
+  const updateManifestURL = updateManifestUrl(options.updateManifestURL)
+  const updateChannel = options.updateChannel ?? (distribution?.channel === 'stable' ? 'stable' : 'rc')
   const integrity = await verifyIntegrity(options.stackRoot)
   if (integrity.diagnostics.length > 0 || integrity.manifest === undefined) throw new DshStackError(integrity.diagnostics[0] ?? diagnostic('STACK_INTEGRITY_ERROR', 'STATIC_VERIFY', 'Stack integrity is invalid'))
   await readAndMatchVerifiedReceipt(options.stackRoot, await options.verify(), {
@@ -372,21 +400,33 @@ export async function packageStack(options: {
     await cp(materialized.profileDir, join(resources, 'profile'), { recursive: true, dereference: true })
     await copyFile(join(ASSET_ROOT, 'reference-client.mjs'), join(resources, 'reference-client.mjs'))
     await copyFile(join(ASSET_ROOT, 'profile-rebase.mjs'), join(resources, 'profile-rebase.mjs'))
-    await copyFile(join(ASSET_ROOT, 'Info.plist'), join(contents, 'Info.plist'))
+    await copyFile(join(ASSET_ROOT, 'update-state.mjs'), join(resources, 'update-state.mjs'))
+    await copyFile(join(ASSET_ROOT, 'app-updater.mjs'), join(resources, 'app-updater.mjs'))
+    const infoTemplate = await readFile(join(ASSET_ROOT, 'Info.plist'), 'utf8')
+    const shortVersion = xmlEscape(appVersion)
+    const buildVersion = xmlEscape(appVersion.replace(/[^0-9.]/gu, '') || '0.0.0')
+    const infoPlist = infoTemplate
+      .replace(/(<key>CFBundleShortVersionString<\/key>\s*<string>)[^<]+(<\/string>)/u, `$1${shortVersion}$2`)
+      .replace(/(<key>CFBundleVersion<\/key>\s*<string>)[^<]+(<\/string>)/u, `$1${buildVersion}$2`)
+    await writeFile(join(contents, 'Info.plist'), infoPlist, 'utf8')
     await copyFile(join(ASSET_ROOT, APP_ICON), join(resources, APP_ICON))
     await copyFile(join(options.stackRoot, 'stack.yaml'), join(resources, 'stack.yaml'))
     try { await copyFile(join(options.stackRoot, 'distribution.yaml'), join(resources, 'distribution.yaml')) } catch { /* legacy Stack */ }
     await copyFile(join(options.stackRoot, 'stack.integrity.json'), join(resources, 'stack.integrity.json'))
     await copyFile(join(options.stackRoot, 'verification.receipt.json'), join(resources, 'verification.receipt.json'))
-    // The application data directory is keyed by stable distribution identity,
-    // not by the Base artifact hash. A new Base must rebase the existing
-    // Derived Profile instead of silently creating an empty profile.
-    const storageId = stack.id
+    // The application data directory is keyed by the stable Distribution
+    // identity, not by App/Base version or artifact hash. This id must remain
+    // unchanged for the lifetime of one DeepSeek Desktop distribution line.
+    const storageId = stableStorageId(distribution?.storageId ?? stack.id)
     await writeFile(join(resources, 'client.json'), JSON.stringify({
       id: stack.id,
       storageId,
+      architecture: targetArch,
+      appVersion,
       baseVersion: stack.version,
       baseIntegrity: integrity.manifest.artifactHash,
+      updateChannel,
+      ...(updateManifestURL === undefined ? {} : { updateManifestURL }),
       distributionKind: 'base',
       profile: stack.harness.profile,
       secrets: stack.requirements.secrets,
@@ -413,6 +453,7 @@ export async function packageStack(options: {
       runtimeRoot: harnessDestination,
       copiedWorkspacePackages,
       harnessVersion: installation.version,
+      appVersion,
       platform: { os: hostPlatform.os, arch: targetArch },
       signing,
       ...(sizeReport === undefined ? {} : { sizeReport }),

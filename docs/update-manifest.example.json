@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "distributionId": "dsh-web",
+  "channel": "rc",
+  "appVersion": "0.2.0-rc.1",
+  "baseVersion": "0.2.0",
+  "baseIntegrity": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "harnessVersion": "0.1.0-rc.6",
+  "minimumMacOS": "12.0",
+  "assets": [
+    {
+      "arch": "x64",
+      "url": "https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.1/DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "receiptUrl": "https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.1/verification.receipt.json"
+    },
+    {
+      "arch": "arm64",
+      "url": "https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.1/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "receiptUrl": "https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.1/verification.receipt.json"
+    }
+  ],
+  "releaseNotesUrl": "https://github.com/xiangyingchang/deepseek-desktop/releases",
+  "publishedAt": "2026-08-16T00:00:00.000Z"
+}

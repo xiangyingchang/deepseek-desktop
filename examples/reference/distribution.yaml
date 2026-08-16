@@ -1,0 +1,15 @@
+schemaVersion: 1
+kind: base
+id: dsh-web
+version: 0.1.0
+channel: rc
+storageId: dsh-web-5590c2a0cb00b3a7
+harness:
+  version: 0.1.0-rc.5
+  adapter: deepseek-harness-source-v1
+  profile: web
+profile:
+  source: ./profile
+release:
+  createdAt: '2026-08-16T00:00:00.000Z'
+  createdBy: dsh-stack

@@ -80,6 +80,7 @@ export async function freezeProfile(options: {
   cwd?: string
   force?: boolean
   base?: import('./types.ts').DistributionManifest['base']
+  storageId?: string
   distributionKind?: import('./types.ts').DistributionManifest['kind']
   distributionChannel?: import('./types.ts').DistributionManifest['channel']
 }): Promise<FreezeResult> {
@@ -126,6 +127,7 @@ export async function freezeProfile(options: {
   await writeFile(join(output, 'stack.yaml'), writeYaml(manifest), 'utf8')
   const distribution = distributionFromStack(manifest, {
     base: options.base,
+    storageId: options.storageId,
     kind: options.distributionKind ?? (options.base === undefined ? 'base' : 'derived'),
     channel: options.distributionChannel ?? (options.base === undefined ? 'rc' : 'working'),
   })
