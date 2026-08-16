@@ -1,8 +1,10 @@
-# DeepSeek Desktop (Unofficial) — Reference Distribution UAT
+# DeepSeek Desktop — Reference Distribution UAT
+
+> Unofficial community project. Not affiliated with DeepSeek.
 
 This is a manual black-box test. The tester must not be the implementer and must use a Mac without the frozen Profile preconfigured.
 
-The technical project and CLI remain `DSH Stack` / `dsh-stack`. The current public `v0.1.0-reference-v10` assets use the `DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64` and `DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64` naming; the historical asset names below are retained only as evidence labels.
+The underlying technical project and CLI remain `DSH Stack` / `dsh-stack`. The current public `v0.1.0-reference-v10` assets use the `DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64` and `DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64` naming; the historical asset names below are retained only as evidence labels.
 
 ## Artifact under test
 

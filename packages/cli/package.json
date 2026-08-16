@@ -2,6 +2,7 @@
   "name": "@dsh-stack/cli",
   "version": "0.1.0",
   "private": true,
+  "description": "DSH Stack CLI for DeepSeek Desktop reproducibility, verification, and distribution.",
   "type": "module",
   "bin": {
     "dsh-stack": "src/main.ts"

@@ -1,21 +1,23 @@
-# DeepSeek Desktop (Unofficial)
+# DeepSeek Desktop
 
 [中文版](README.zh-CN.md) | English
 
-> An unofficial community desktop client for the official DeepSeek Harness. It is not an official DeepSeek product.
+> An unofficial desktop distribution for DeepSeek Harness, powered by DSH Stack.
+>
+> **Unofficial community project. Not affiliated with DeepSeek.**
 
-DeepSeek Desktop packages an existing DeepSeek Harness Profile as a self-contained macOS app. The technical project and CLI are called **DSH Stack** / `dsh-stack`.
+DeepSeek Desktop is the user-facing macOS distribution. **DSH Stack** is its underlying reproducibility / verification / distribution layer, and its core CLI and packages intentionally remain named `dsh-stack` / `@dsh-stack/*`.
 
 DSH Stack does not reimplement the Harness runtime, plugin system, pnpm, dependency resolution, Agent Loop, or official Web UI. It freezes, verifies, reproduces, and packages the official Harness environment.
 
 ## Download
 
-Open the [current public Reference / RC Release](https://github.com/xiangyingchang/dsh-stack/releases/tag/v0.1.0-reference-v10) and download the DMG that matches your Mac:
+Open the [current public Reference / RC Release](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.1.0-reference-v10) and download the DMG that matches your Mac:
 
 | Mac | Download | CPU | Current evidence |
 |---|---|---|---|
-| Intel Mac | [DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg) | x86_64 | Packaging, Live Agent, and clean-machine UAT: PASS |
-| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg) | arm64 | Native packaging: PASS; manual App and Live Agent UAT: pending |
+| Intel Mac | [DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg) | x86_64 | Packaging, Live Agent, and clean-machine UAT: PASS |
+| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg) | arm64 | Native packaging: PASS; manual App and Live Agent UAT: pending |
 
 The Release also contains matching SHA-256 files, verification receipts, and package-size reports. The public asset names explicitly include `Intel` or `Apple-Silicon`.
 
@@ -102,9 +104,11 @@ Do not download the source ZIP unless you are a developer. It is not the normal 
 
 ## For developers
 
-Install dependencies and run the automated checks:
+Clone the renamed repository, install dependencies, and run the automated checks:
 
 ```sh
+git clone https://github.com/xiangyingchang/deepseek-desktop.git
+cd deepseek-desktop
 pnpm install
 pnpm typecheck
 pnpm test

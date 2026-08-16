@@ -2,6 +2,7 @@
   "name": "@dsh-stack/core",
   "version": "0.1.0",
   "private": true,
+  "description": "DSH Stack core library for DeepSeek Desktop reproducibility, verification, and distribution.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

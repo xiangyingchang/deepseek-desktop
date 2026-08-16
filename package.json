@@ -2,6 +2,15 @@
   "name": "dsh-stack",
   "version": "0.1.0",
   "private": true,
+  "description": "DSH Stack reproducibility, verification, and distribution layer for DeepSeek Desktop.",
+  "homepage": "https://github.com/xiangyingchang/deepseek-desktop#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xiangyingchang/deepseek-desktop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xiangyingchang/deepseek-desktop/issues"
+  },
   "type": "module",
   "packageManager": "pnpm@11.12.0",
   "engines": {

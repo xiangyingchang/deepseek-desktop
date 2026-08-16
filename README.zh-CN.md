@@ -1,21 +1,23 @@
-# DeepSeek Desktop (Unofficial)
+# DeepSeek Desktop
 
 中文版 | [English](README.md)
 
-> 面向 DeepSeek Harness 的非官方社区桌面客户端，不是 DeepSeek 官方产品。
+> 面向 DeepSeek Harness 的非官方桌面发行版，由 DSH Stack 提供底层能力。
+>
+> **非官方社区项目，与 DeepSeek 无关联。**
 
-DeepSeek Desktop 可以把一套现有的 DeepSeek Harness Profile 打包成普通用户可直接安装的 macOS 应用。技术项目和 CLI 名称仍然是 **DSH Stack** / `dsh-stack`。
+DeepSeek Desktop 是面向用户的 macOS 发行版。**DSH Stack** 是其底层的 reproducibility / verification / distribution layer；核心 CLI 和 package 名称继续使用 `dsh-stack` / `@dsh-stack/*`。
 
 DSH Stack 不重新实现 Harness 运行时、插件系统、pnpm、依赖解析、Agent Loop 或官方 Web UI；它负责冻结、验证、重建并打包官方 Harness 环境。
 
 ## 下载
 
-打开[当前公开的 Reference / RC Release](https://github.com/xiangyingchang/dsh-stack/releases/tag/v0.1.0-reference-v10)，根据你的 Mac 选择对应 DMG：
+打开[当前公开的 Reference / RC Release](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.1.0-reference-v10)，根据你的 Mac 选择对应 DMG：
 
 | Mac 类型 | 下载 | 芯片架构 | 当前验证状态 |
 |---|---|---|---|
-| Intel Mac | [DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg) | x86_64 | 打包、Live Agent、非开发者 UAT：PASS |
-| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/dsh-stack/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg) | arm64 | 原生打包：PASS；实机 App 和 Live Agent UAT：待验证 |
+| Intel Mac | [DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg) | x86_64 | 打包、Live Agent、非开发者 UAT：PASS |
+| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.1.0-reference-v10/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg) | arm64 | 原生打包：PASS；实机 App 和 Live Agent UAT：待验证 |
 
 Release 页面同时提供对应的 SHA-256 文件、verification receipt 和 package-size report。公开资产名称会明确包含 `Intel` 或 `Apple-Silicon`。
 
@@ -102,9 +104,11 @@ Share This Setup → Preflight → Secret Scan → Freeze → Verify → Pack
 
 ## 开发者使用
 
-安装依赖并运行自动化检查：
+克隆已重命名的仓库，安装依赖并运行自动化检查：
 
 ```sh
+git clone https://github.com/xiangyingchang/deepseek-desktop.git
+cd deepseek-desktop
 pnpm install
 pnpm typecheck
 pnpm test

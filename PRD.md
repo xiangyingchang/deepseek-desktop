@@ -1,9 +1,10 @@
-# DeepSeek Harness Reproducible Distribution
+# DeepSeek Desktop — DSH Stack Product Requirements
 ## PRD v2.3 — Freeze · Prove · Reproduce · Package
 
 **状态：** Phase 2 Lifecycle Architecture Freeze / Implementation in Progress
 **日期：** 2026-08-15  
-**产品名称：** DeepSeek Desktop (Unofficial)
+**产品名称：** DeepSeek Desktop
+**项目属性：** Unofficial community project. Not affiliated with DeepSeek.
 **工程代号：** DSH Stack
 **上游：** DeepSeek Harness  
 **核心定位：** Reproducible Distribution Layer for DeepSeek Harness  
@@ -2085,7 +2086,7 @@ Community trust
 推荐：
 
 ```text
-dsh-stack/
+deepseek-desktop/
 
 packages/
 

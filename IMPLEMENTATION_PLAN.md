@@ -1,4 +1,6 @@
-# DeepSeek Desktop (Unofficial) — DSH Stack Implementation Plan
+# DeepSeek Desktop — DSH Stack Implementation Plan
+
+> Unofficial community project. Not affiliated with DeepSeek.
 
 > Authority: [`PRD.md`](PRD.md), DSH Stack PRD v2.3. This file maps the PRD to executable work; it does not redefine the product boundary.
 
