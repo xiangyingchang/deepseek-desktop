@@ -316,7 +316,7 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
 
     private var currentMacOSVersion: String {
         let version = ProcessInfo.processInfo.operatingSystemVersion
-        return "(version.majorVersion).(version.minorVersion).(version.patchVersion)"
+        return "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
     }
 
     private func compareVersions(_ left: String, _ right: String) -> ComparisonResult {
