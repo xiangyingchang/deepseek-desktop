@@ -35,7 +35,7 @@ You do not need Node, pnpm, the `dsh-stack` CLI, a pre-installed Profile, or a T
 6. Create a Web session and send a message.
 7. If the key is rejected, return to the same Models page, replace it, save, and retry. Restarting is not required.
 
-For a new RC update, use **DeepSeek Desktop → Check for Updates…**. After downloading and mounting the DMG, choose **Install Update…** and select the new `.app`; the current runtime is stopped before the transaction starts. If the candidate fails verification, the old App and User State remain in place. The public v10 App predates this menu, so install the fixed build once before using this flow.
+For a new RC update, use **DeepSeek Desktop → Check for Updates…**. After downloading and mounting the DMG, choose **Install Update…** and select the new `.app`; the current runtime is stopped before the transaction starts. If the candidate fails verification, the old App and User State remain in place. The public v10 App predates this menu, so install the fixed build once before using this flow. Apps packaged with `--update-manifest-url` check the evergreen feed described in the [release update feed runbook](docs/release-update-feed.md); Apps packaged without it show manual-download guidance instead.
 
 The API key is stored by the official Harness credentials provider. DSH Stack does not print or embed the key in the app.
 
@@ -196,6 +196,7 @@ The package contains the exact Harness and Profile closure required by that Stac
 - [Phase 2 generalization](docs/phase-2-generalization.md) — external Profile compatibility work
 - [Phase 2 lifecycle](docs/phase-2-lifecycle.md) — Base/Derived/Rebase/Share model and evidence boundary
 - [Update Manifest example](docs/update-manifest.example.json) — release metadata shape for architecture-specific update checks
+- [Release update feed runbook](docs/release-update-feed.md) — publish a versioned App plus the evergreen Update Manifest feed
 - [Phase 2 review](PHASE_2_REVIEW.md) — PASS / FAIL / UNSUPPORTED conclusions
 
 ## Security boundary

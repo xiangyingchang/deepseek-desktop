@@ -233,7 +233,7 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
                 let detail = diagnostics.trimmingCharacters(in: .whitespacesAndNewlines)
                 self.showUpdateAlert(
                     title: "Update Not Installed",
-                    message: detail.isEmpty ? "The candidate App failed verification. Your current App and User State were kept." : "The candidate App failed verification. Your current App and User State were kept.\n\n(detail)"
+                    message: detail.isEmpty ? "The candidate App failed verification. Your current App and User State were kept." : "The candidate App failed verification. Your current App and User State were kept.\n\n\(detail)"
                 )
                 self.startRuntime()
             }
@@ -264,11 +264,11 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             guard compareVersions(manifest.minimumMacOS, currentMacOSVersion) != .orderedDescending else {
-                showUpdateAlert(title: "Update Unavailable", message: "This update requires macOS (manifest.minimumMacOS) or newer.")
+                showUpdateAlert(title: "Update Unavailable", message: "This update requires macOS \(manifest.minimumMacOS) or newer.")
                 return
             }
             guard manifest.assets.filter({ $0.arch == currentArchitecture }).count == 1 else {
-                showUpdateAlert(title: "Update Unavailable", message: "The Update Manifest does not contain exactly one (currentArchitecture) asset.")
+                showUpdateAlert(title: "Update Unavailable", message: "The Update Manifest does not contain exactly one \(currentArchitecture) asset.")
                 return
             }
             let asset = manifest.assets.first { $0.arch == currentArchitecture }

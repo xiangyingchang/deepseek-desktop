@@ -35,7 +35,7 @@ Release 页面同时提供对应的 SHA-256 文件、verification receipt 和 pa
 6. 创建一个 Web session，发送一条消息。
 7. 如果 Key 不正确，回到同一个 Models 页面替换并保存，然后重试，不需要重启 App。
 
-升级 RC 时，使用 **DeepSeek Desktop → Check for Updates…**。下载并打开 DMG 后，选择 **Install Update…**，再选择新下载的 `.app`；事务开始前会先停止当前 Runtime。如果候选 App 验证失败，旧 App 和 User State 会保留。公开 v10 App 还没有这个菜单，因此需要先安装一次包含本次修复的新构建。
+升级 RC 时，使用 **DeepSeek Desktop → Check for Updates…**。下载并打开 DMG 后，选择 **Install Update…**，再选择新下载的 `.app`；事务开始前会先停止当前 Runtime。如果候选 App 验证失败，旧 App 和 User State 会保留。公开 v10 App 还没有这个菜单，因此需要先安装一次包含本次修复的新构建。带 `--update-manifest-url` 打包的 App 会检查[发布更新源 Runbook](docs/release-update-feed.md)中描述的常青更新源；没有该参数的 App 会显示手动下载指引。
 
 API Key 由官方 Harness 凭据提供方保存。DSH Stack 不会打印或把 Key 写进 App。
 
@@ -196,6 +196,7 @@ pnpm dsh-stack upgrade-verify <current-stack> ../deepseek-harness --json
 - [Phase 2 Generalization](docs/phase-2-generalization.md) —— 外部 Profile 兼容性研究
 - [Phase 2 Lifecycle](docs/phase-2-lifecycle.md) —— Base/Derived/Rebase/Share 模型和证据边界
 - [Update Manifest 示例](docs/update-manifest.example.json) —— 按架构发布更新检查元数据的格式
+- [发布更新源 Runbook](docs/release-update-feed.md) —— 发布带版本的 App 并维护常青 Update Manifest 更新源
 - [Phase 2 Review](PHASE_2_REVIEW.md) —— PASS / FAIL / UNSUPPORTED 结论
 
 ## 安全边界

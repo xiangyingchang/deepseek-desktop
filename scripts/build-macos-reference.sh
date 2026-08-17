@@ -16,6 +16,13 @@ NODE_RUNTIME="${DSH_STACK_NODE_RUNTIME:-}"
 NOTARY_PROFILE="${DSH_STACK_NOTARY_PROFILE:-}"
 APP_VERSION="${DSH_STACK_APP_VERSION:-}"
 STORAGE_ID="${DSH_STACK_STORAGE_ID:-}"
+# Evergreen HTTPS Update Manifest feed baked into the App (Check for Updates…).
+UPDATE_MANIFEST_URL="${DSH_STACK_UPDATE_MANIFEST_URL:-}"
+UPDATE_CHANNEL="${DSH_STACK_UPDATE_CHANNEL:-}"
+# Release tag used for asset URLs when auto-generating update-manifest.json.
+RELEASE_TAG="${DSH_STACK_RELEASE_TAG:-}"
+# GitHub owner/repo; defaults to parsing git origin inside the generator.
+RELEASE_REPO="${DSH_STACK_RELEASE_REPO:-}"
 
 phase() {
   echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $1"
@@ -70,6 +77,8 @@ phase "Verify completed"
 PACKAGE_ARGS=(pnpm dsh-stack package "$STACK_DIR" --harness "$HARNESS_ROOT" --arch "$ARCH" --output "$APP_PATH" --size-report)
 if [[ -n "$NODE_RUNTIME" ]]; then PACKAGE_ARGS+=(--node-runtime "$NODE_RUNTIME"); fi
 if [[ -n "$APP_VERSION" ]]; then PACKAGE_ARGS+=(--app-version "$APP_VERSION"); fi
+if [[ -n "$UPDATE_MANIFEST_URL" ]]; then PACKAGE_ARGS+=(--update-manifest-url "$UPDATE_MANIFEST_URL"); fi
+if [[ -n "$UPDATE_CHANNEL" ]]; then PACKAGE_ARGS+=(--update-channel "$UPDATE_CHANNEL"); fi
 if [[ -n "$SIGNING_IDENTITY" ]]; then PACKAGE_ARGS+=(--signing-identity "$SIGNING_IDENTITY" --hardened-runtime); fi
 phase "Package started"
 "${PACKAGE_ARGS[@]}"
@@ -110,6 +119,15 @@ phase "DMG created and verified"
 cp "$STACK_DIR/verification.receipt.json" "$RECEIPT_PATH"
 (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$DMG_PATH")" > "$(basename "$DMG_PATH").sha256")
 
+if [[ -n "$UPDATE_MANIFEST_URL" && -n "$RELEASE_TAG" ]]; then
+  phase "Update Manifest generation started"
+  MANIFEST_ARGS=(node "$ROOT_DIR/scripts/generate-update-manifest.mjs" --dist "$OUTPUT_DIR" --tag "$RELEASE_TAG")
+  if [[ -n "$RELEASE_REPO" ]]; then MANIFEST_ARGS+=(--repo "$RELEASE_REPO"); fi
+  if [[ -n "$UPDATE_CHANNEL" ]]; then MANIFEST_ARGS+=(--channel "$UPDATE_CHANNEL"); fi
+  "${MANIFEST_ARGS[@]}"
+  phase "Update Manifest generation completed"
+fi
+
 echo "RELEASE_ARTIFACT"
 echo "Architecture: $ARCH"
 echo "App: $APP_PATH"
@@ -117,6 +135,10 @@ echo "DMG: $DMG_PATH"
 echo "Receipt: $RECEIPT_PATH"
 echo "Size report: $PUBLIC_SIZE_REPORT_PATH"
 echo "SHA256: $OUTPUT_DIR/$(basename "$DMG_PATH").sha256"
+if [[ -n "$UPDATE_MANIFEST_URL" ]]; then
+  echo "Update feed: $UPDATE_MANIFEST_URL"
+  echo "Update manifest: $OUTPUT_DIR/update-manifest.json"
+fi
 if [[ -n "$SIGNING_IDENTITY" ]]; then
   echo "Signing: $SIGNING_IDENTITY + Hardened Runtime"
 else
