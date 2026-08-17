@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process'
-import { chmod, copyFile, cp, mkdir, readdir, readFile, realpath, writeFile } from 'node:fs/promises'
+import { chmod, copyFile, cp, mkdir, open, readdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -262,13 +262,99 @@ interface SigningResult {
   hardenedRuntime: boolean
 }
 
-async function signApp(appPath: string, options: { identity?: string; hardenedRuntime?: boolean } = {}): Promise<SigningResult> {
+const MACHO_MAGICS = new Set([0xFEEDFACE, 0xFEEDFACF, 0xCAFEBABE, 0xBEBAFECA, 0xCEFAEDFE, 0xCFFAEDFE])
+
+/** Detect a Mach-O image (thin or universal) by its magic number. */
+async function isMachOFile(path: string): Promise<boolean> {
+  const handle = await open(path, 'r')
+  try {
+    const buffer = Buffer.alloc(4)
+    const { bytesRead } = await handle.read(buffer, 0, 4, 0)
+    if (bytesRead < 4) return false
+    return MACHO_MAGICS.has(buffer.readUInt32BE(0)) || MACHO_MAGICS.has(buffer.readUInt32LE(0))
+  } finally {
+    await handle.close()
+  }
+}
+
+/**
+ * Every Mach-O binary embedded in the bundle, including bare executables under
+ * Resources/ and prebuilt libraries deep inside node_modules closures.
+ * `codesign --deep` never touches those locations, so they must be enumerated
+ * and signed explicitly.
+ */
+export async function listBundleMachOFiles(root: string): Promise<string[]> {
+  const found: string[] = []
+  const walk = async (directory: string): Promise<void> => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name)
+      if (entry.isDirectory()) await walk(path)
+      else if (entry.isFile() && await isMachOFile(path)) found.push(path)
+    }
+  }
+  await walk(root)
+  return found.sort()
+}
+
+function codesignFailureDetail(error: unknown): string {
+  const stderr = (error as { stderr?: Buffer }).stderr
+  const detail = stderr === undefined ? undefined : stderr.toString('utf8').trim()
+  return detail !== undefined && detail.length > 0 ? detail : String(error)
+}
+
+/**
+ * Verify the outer bundle seal and every embedded Mach-O individually.
+ * `codesign --verify --deep` does not validate nested binaries in
+ * non-standard locations, so each one is checked on its own.
+ */
+function verifyAppBundleSignatures(appPath: string, targets: string[]): void {
+  const failures: string[] = []
+  for (const target of targets) {
+    try {
+      execFileSync('codesign', ['--verify', '--strict', target], { stdio: ['ignore', 'ignore', 'pipe'] })
+    } catch (error) {
+      failures.push(`${target}: ${codesignFailureDetail(error)}`)
+    }
+  }
+  try {
+    execFileSync('codesign', ['--verify', '--deep', '--strict', appPath], { stdio: ['ignore', 'ignore', 'pipe'] })
+  } catch (error) {
+    failures.push(`${appPath}: ${codesignFailureDetail(error)}`)
+  }
+  if (failures.length > 0) throw new DshStackError(diagnostic('PACKAGE_BUILD_FAILED', 'MATERIALIZE', `App bundle signature verification failed (${failures.length} failure${failures.length === 1 ? '' : 's'}): ${failures.join('; ')}`, {
+    component: 'codesign embedded Mach-O verification',
+    action: 'Re-run Package from a clean Stack; report the failing binaries if the error persists.',
+  }))
+}
+
+/**
+ * Sign the App bundle from the inside out. Binaries copied from the build
+ * host or from npm packages may carry stale signatures already invalidated by
+ * `install_name_tool` edits; macOS AMFI rejects their invalid code pages at
+ * load time and SIGKILLs the runtime (the v0.2.0-rc.8 arm64 startup failure).
+ * Every embedded Mach-O is therefore re-signed explicitly, the outer bundle
+ * is sealed last, and the result is verified before Package can succeed.
+ */
+export async function signApp(appPath: string, options: { identity?: string; hardenedRuntime?: boolean } = {}): Promise<SigningResult> {
   const identity = options.identity ?? process.env.DSH_STACK_CODESIGN_IDENTITY ?? '-'
   const hardenedRuntime = options.hardenedRuntime ?? identity !== '-'
-  const args = ['--force', '--deep', '--sign', identity]
+  const args = ['--force', '--sign', identity]
   if (hardenedRuntime) args.push('--options', 'runtime')
-  args.push(identity === '-' ? '--timestamp=none' : '--timestamp', appPath)
-  execFileSync('codesign', args, { stdio: ['ignore', 'ignore', 'pipe'] })
+  args.push(identity === '-' ? '--timestamp=none' : '--timestamp')
+  const executable = join(appPath, 'Contents', 'MacOS', APP_EXECUTABLE)
+  const nested = (await listBundleMachOFiles(appPath)).filter(path => path !== executable)
+  for (const target of nested) {
+    try {
+      execFileSync('codesign', [...args, target], { stdio: ['ignore', 'ignore', 'pipe'] })
+    } catch (error) {
+      throw new DshStackError(diagnostic('PACKAGE_BUILD_FAILED', 'MATERIALIZE', `Unable to sign embedded binary ${target}: ${codesignFailureDetail(error)}`, {
+        component: 'codesign nested Mach-O signing',
+        action: 'Verify the embedded runtime binaries are intact Mach-O images and retry Package.',
+      }))
+    }
+  }
+  execFileSync('codesign', [...args, appPath], { stdio: ['ignore', 'ignore', 'pipe'] })
+  verifyAppBundleSignatures(appPath, [...nested, executable])
   return { mode: identity === '-' ? 'adhoc' : 'identity', identity, hardenedRuntime }
 }
 

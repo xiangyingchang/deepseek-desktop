@@ -68,6 +68,45 @@ export async function verifyPackagedProof(appPath) {
   return { metadata, integrity, receipt }
 }
 
+const MACHO_MAGICS = new Set([0xFEEDFACE, 0xFEEDFACF, 0xCAFEBABE, 0xBEBAFECA, 0xCEFAEDFE, 0xCFFAEDFE])
+
+async function isMachOFile(path) {
+  const handle = await open(path, 'r')
+  try {
+    const buffer = Buffer.alloc(4)
+    const { bytesRead } = await handle.read(buffer, 0, 4, 0)
+    if (bytesRead < 4) return false
+    return MACHO_MAGICS.has(buffer.readUInt32BE(0)) || MACHO_MAGICS.has(buffer.readUInt32LE(0))
+  } finally {
+    await handle.close()
+  }
+}
+
+// `codesign --verify --deep` does not validate nested Mach-O binaries in
+// non-standard locations (bare executables under Resources/, prebuilt
+// libraries inside node_modules). A candidate App whose embedded runtime
+// carries a stale signature installs fine and is SIGKILLed by AMFI on first
+// launch, so every embedded binary is verified individually.
+async function verifyEmbeddedMachOSignatures(appPath) {
+  const failures = []
+  const walk = async directory => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name)
+      if (entry.isDirectory()) await walk(path)
+      else if (entry.isFile() && await isMachOFile(path)) {
+        try {
+          await execFile('/usr/bin/codesign', ['--verify', '--strict', path])
+        } catch (error) {
+          const detail = String(error.stderr ?? error.message ?? error).trim()
+          failures.push(`${path}: ${detail}`)
+        }
+      }
+    }
+  }
+  await walk(join(appPath, 'Contents'))
+  if (failures.length > 0) throw new Error(`APP_UPDATE_INVALID: embedded Mach-O signature verification failed (${failures.length} failure${failures.length === 1 ? '' : 's'}): ${failures.join('; ')}`)
+}
+
 async function verifyBundle(appPath) {
   const required = [
     join(appResources(appPath), 'client.json'),
@@ -82,6 +121,7 @@ async function verifyBundle(appPath) {
   for (const path of required) if (!await exists(path)) throw new Error(`APP_UPDATE_INVALID: candidate is missing ${path}`)
   await verifyPackagedProof(appPath)
   await execFile('/usr/bin/codesign', ['--verify', '--deep', '--strict', appPath])
+  await verifyEmbeddedMachOSignatures(appPath)
 }
 
 async function copyIfPresent(source, target) {

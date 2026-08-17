@@ -81,6 +81,22 @@ fi
 
 phase "App signature verification started"
 codesign --verify --deep --strict "$APP_PATH"
+# --deep does not validate nested Mach-O binaries in non-standard locations
+# (bare executables under Resources/, prebuilt libraries deep inside
+# node_modules). v0.2.0-rc.8 shipped DMGs whose embedded node runtime and
+# node-pty x64 prebuilds carried stale signatures; macOS AMFI SIGKILLs them
+# at first load. Verify every embedded Mach-O individually before shipping.
+macho_failures=0
+while IFS= read -r candidate; do
+  if ! codesign --verify --strict "$candidate" >/dev/null 2>&1; then
+    echo "Invalid or missing signature on embedded Mach-O: $candidate" >&2
+    macho_failures=$((macho_failures + 1))
+  fi
+done < <(find "$APP_PATH" -type f -print0 | xargs -0 file | sed -n 's/^\(.*\): Mach-O.*$/\1/p')
+if [[ "$macho_failures" -ne 0 ]]; then
+  echo "Release gate failed: $macho_failures embedded Mach-O file(s) failed signature verification." >&2
+  exit 5
+fi
 phase "App signature verification completed"
 
 STAGING_DIR="$WORK_DIR/dmg"
