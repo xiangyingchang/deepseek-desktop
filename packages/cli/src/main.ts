@@ -20,7 +20,9 @@ import {
   writeRebaseReport,
   readDistributionManifest,
   readStackManifest,
+  checkHarnessUpdate,
   inspectHarnessUpgradeCandidate,
+  syncHarnessUpdate,
   verifyHarnessUpgrade,
   verifyIntegrity,
   runCleanStack,
@@ -53,6 +55,8 @@ Commands:
   import <archive>        inspect and extract a .dshstack for standard verification
   update <old> <current> <new>  verify a rebased candidate, then atomically switch it
   upgrade-verify <stack> <harness>  verify a Stack against an explicit Harness candidate
+  harness-check <harness>  check the official Harness remote without changing source
+  harness-update <stack> <harness>  verify, then fast-forward a clean Harness checkout with --apply
 
 Common options:
   --profile <name>        Profile name under DSH_HOME (default: web)
@@ -83,11 +87,14 @@ Verify/run options:
   --update-manifest-url <url> HTTPS Update Manifest for Native Check for Updates
   --update-channel <stable|rc> release channel for the Native updater (default: rc)
   --size-report           write package-size-report.json next to the App
+  --remote <name|url>     Harness Git remote (default: origin)
+  --ref <branch|tag>      Harness remote ref (default: master)
+  --apply                 apply harness-update after candidate Runtime Verify PASS
   --live                  reserved; returns UNSUPPORTED in V0.1
 `
 
 interface ParsedArgs {
-  command: 'inspect' | 'freeze' | 'verify' | 'run' | 'package' | 'drift' | 'rebase' | 'promote' | 'pack' | 'import' | 'update' | 'upgrade-verify'
+  command: 'inspect' | 'freeze' | 'verify' | 'run' | 'package' | 'drift' | 'rebase' | 'promote' | 'pack' | 'import' | 'update' | 'upgrade-verify' | 'harness-check' | 'harness-update'
   profile: string
   harnessRoot?: string
   dshHome?: string
@@ -114,6 +121,9 @@ interface ParsedArgs {
   baseStack?: string
   distributionVersion?: string
   storageId?: string
+  remote?: string
+  ref?: string
+  apply: boolean
 }
 
 function optionValue(argv: readonly string[], index: number, flag: string): { value: string; next: number } {
@@ -127,9 +137,9 @@ export function parseArgs(argv: readonly string[]): ParsedArgs | 'help' | 'versi
   if (argv.length === 0 || argv.includes('--help') || argv.includes('-h')) return 'help'
   if (argv.includes('--version') || argv.includes('-V')) return 'version'
   const command = argv[0]
-  const validCommands = ['inspect', 'freeze', 'verify', 'run', 'package', 'drift', 'rebase', 'promote', 'pack', 'import', 'update', 'upgrade-verify'] as const
+  const validCommands = ['inspect', 'freeze', 'verify', 'run', 'package', 'drift', 'rebase', 'promote', 'pack', 'import', 'update', 'upgrade-verify', 'harness-check', 'harness-update'] as const
   if (!validCommands.includes(command as typeof validCommands[number])) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unknown command ${JSON.stringify(command)}`, action: 'Run dsh-stack --help to see the supported commands.' }, EXIT_CODES.invalidInput)
-  const parsed: ParsedArgs = { command: command as ParsedArgs['command'], profile: 'web', operands: [], json: false, force: false, clean: false, live: false, keepTemp: false, hardenedRuntime: false, sizeReport: false }
+  const parsed: ParsedArgs = { command: command as ParsedArgs['command'], profile: 'web', operands: [], json: false, force: false, clean: false, live: false, keepTemp: false, hardenedRuntime: false, sizeReport: false, apply: false }
   for (let index = 1; index < argv.length; index += 1) {
     const token = argv[index]!
     if (token === '--json') parsed.json = true
@@ -180,16 +190,26 @@ export function parseArgs(argv: readonly string[]): ParsedArgs | 'help' | 'versi
       parsed.updateChannel = item.value
       index = item.next
     }
+    else if (token === '--remote') {
+      const item = optionValue(argv, index, token); parsed.remote = item.value; index = item.next
+    } else if (token === '--ref') {
+      const item = optionValue(argv, index, token); parsed.ref = item.value; index = item.next
+    } else if (token === '--apply') parsed.apply = true
     else if (token === '--size-report') parsed.sizeReport = true
     else if (token.startsWith('--')) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unknown option ${token}`, action: 'Run dsh-stack --help to see the supported options.' }, EXIT_CODES.invalidInput)
     else parsed.operands.push(token)
   }
   parsed.stackRoot = parsed.operands[0]
   const commandName = command!
-  const minimumOperands: Record<string, number> = { verify: 1, run: 1, package: 1, pack: 1, import: 1, promote: 1, drift: 2, rebase: 3, update: 3, 'upgrade-verify': 2 }
+  const minimumOperands: Record<string, number> = { verify: 1, run: 1, package: 1, pack: 1, import: 1, promote: 1, 'harness-check': 1, drift: 2, rebase: 3, update: 3, 'upgrade-verify': 2, 'harness-update': 2 }
   const required = minimumOperands[commandName] ?? 0
   if (parsed.operands.length < required) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `${commandName} requires ${required} positional argument(s)`, action: `Run dsh-stack ${commandName} with the required paths.` }, EXIT_CODES.invalidInput)
-  if (parsed.operands.length > (commandName === 'drift' || commandName === 'upgrade-verify' ? 2 : commandName === 'rebase' || commandName === 'update' ? 3 : commandName === 'inspect' || commandName === 'freeze' ? 1 : 1)) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unexpected argument ${parsed.operands[parsed.operands.length - 1]}`, action: 'Pass only the paths documented by dsh-stack --help.' }, EXIT_CODES.invalidInput)
+  const maximumOperands = commandName === 'drift' || commandName === 'upgrade-verify' || commandName === 'harness-update'
+    ? 2
+    : commandName === 'rebase' || commandName === 'update'
+      ? 3
+      : 1
+  if (parsed.operands.length > maximumOperands) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: `Unexpected argument ${parsed.operands[parsed.operands.length - 1]}`, action: 'Pass only the paths documented by dsh-stack --help.' }, EXIT_CODES.invalidInput)
   if (commandName === 'run' && !parsed.clean) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: 'run requires --clean', action: 'Use run <stack> --clean so the disposable materialization is explicit.' }, EXIT_CODES.invalidInput)
   if (commandName === 'update' && parsed.activePath === undefined) throw new DshStackError({ code: 'INVALID_ARGUMENT', stage: 'INSPECT', message: 'update requires --active <profile-directory>', action: 'Pass the current active Profile directory; it is never replaced before verification.' }, EXIT_CODES.invalidInput)
   return parsed
@@ -349,6 +369,58 @@ async function upgradeVerifyCommand(args: ParsedArgs): Promise<number> {
   return result.receipt.verification.result === 'pass' ? EXIT_CODES.success : result.receipt.verification.result === 'unsupported' ? EXIT_CODES.unsupported : EXIT_CODES.failure
 }
 
+function displayHarnessUpdateCheck(result: Awaited<ReturnType<typeof checkHarnessUpdate>>): string {
+  const lines = [
+    `HARNESS ${result.status}`,
+    `Current: ${result.current.version}${result.current.commit === undefined ? '' : ` (${result.current.commit})`}${result.current.dirty ? ' [dirty]' : ''}`,
+    `Remote: ${result.remote}/${result.ref}`,
+  ]
+  if (result.candidate !== undefined) lines.push(`Candidate: ${result.candidate.version} (${result.candidate.commit})`)
+  if (result.current.dirty) lines.push('Apply: blocked until the Harness source checkout is clean')
+  if (result.diagnostic !== undefined) lines.push(displayDiagnostic(result.diagnostic))
+  return lines.join('\n')
+}
+
+async function harnessCheckCommand(args: ParsedArgs): Promise<number> {
+  const result = await checkHarnessUpdate({
+    harnessRoot: absolutePath(args.operands[0]!),
+    remote: args.remote,
+    ref: args.ref,
+    cwd: process.cwd(),
+  })
+  if (args.json) console.log(JSON.stringify(result, null, 2))
+  else console.log(displayHarnessUpdateCheck(result))
+  return result.status === 'UNAVAILABLE' ? EXIT_CODES.failure : EXIT_CODES.success
+}
+
+async function harnessUpdateCommand(args: ParsedArgs): Promise<number> {
+  const stackRoot = absolutePath(args.operands[0]!)
+  const harnessRoot = absolutePath(args.operands[1]!)
+  if (!args.apply) {
+    const result = await checkHarnessUpdate({ harnessRoot, remote: args.remote, ref: args.ref, cwd: process.cwd() })
+    if (args.json) console.log(JSON.stringify({ ...result, apply: 'rerun with --apply after reviewing the candidate' }, null, 2))
+    else console.log(`${displayHarnessUpdateCheck(result)}\nApply: rerun with --apply to verify and synchronize this source checkout`)
+    return result.status === 'UNAVAILABLE' ? EXIT_CODES.failure : EXIT_CODES.success
+  }
+  const result = await syncHarnessUpdate({
+    stackRoot,
+    harnessRoot,
+    remote: args.remote,
+    ref: args.ref,
+    cwd: process.cwd(),
+    dshHome: args.dshHome,
+    host: args.host,
+    port: args.port,
+  })
+  const reportPath = absolutePath(args.report ?? `./artifacts/harness-update-${Date.now()}.json`)
+  await mkdir(resolve(reportPath, '..'), { recursive: true })
+  await writeFile(reportPath, JSON.stringify({ check: result.check, applied: result.applied, receipt: result.candidate?.receipt }, null, 2) + '\n', 'utf8')
+  if (args.json) console.log(JSON.stringify({ ...result, reportPath }, null, 2))
+  else if (result.status === 'UP_TO_DATE') console.log(`${displayHarnessUpdateCheck(result.check)}\nReport: ${reportPath}`)
+  else console.log(`HARNESS SYNCED\nHarness: ${result.applied?.version} (${result.applied?.commit})\nVerification Report: ${reportPath}`)
+  return EXIT_CODES.success
+}
+
 async function main(argv = process.argv.slice(2)): Promise<number> {
   const parsed = parseArgs(argv)
   if (parsed === 'help') { console.log(HELP); return EXIT_CODES.success }
@@ -361,6 +433,8 @@ async function main(argv = process.argv.slice(2)): Promise<number> {
   if (parsed.command === 'import') return importCommand(parsed)
   if (parsed.command === 'update') return updateCommand(parsed)
   if (parsed.command === 'upgrade-verify') return upgradeVerifyCommand(parsed)
+  if (parsed.command === 'harness-check') return harnessCheckCommand(parsed)
+  if (parsed.command === 'harness-update') return harnessUpdateCommand(parsed)
   if (parsed.live) {
     const d = { code: 'LIVE_VERIFICATION_UNSUPPORTED' as const, stage: 'LIVE_TEST' as const, message: 'Live verification is reserved and unsupported in V0.1; no LLM or external API call was made.', action: 'Use runtime verification for deterministic environment proof.' }
     if (parsed.json) console.log(JSON.stringify({ result: 'unsupported', diagnostics: [d] }, null, 2))

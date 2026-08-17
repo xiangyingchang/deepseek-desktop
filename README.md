@@ -182,9 +182,18 @@ pnpm dsh-stack verify ./artifacts/imported --harness ../deepseek-harness
 
 # Verify an explicit Harness checkout as an upgrade candidate
 pnpm dsh-stack upgrade-verify <current-stack> ../deepseek-harness --json
+
+# Check the official Harness source without changing the checkout
+pnpm dsh-stack harness-check ../deepseek-harness --remote origin --ref master --json
+
+# Verify the candidate, then explicitly synchronize a clean source checkout
+pnpm dsh-stack harness-update <current-stack> ../deepseek-harness \
+  --remote origin --ref master --apply --report ./artifacts/harness-update.json
 ```
 
 `promote`, `pack`, and `package` run the real Runtime Verify as part of the guarded operation; they do not trust an edited or stale `verification.receipt.json`. `update` rebases, keeps the verified materialized dependency closure, and only then switches `--active <profile-directory>`. It never overwrites the active Profile before verification.
+
+Terminal Harness updates are two-phase: `harness-check` is read-only for the working branch, while `harness-update --apply` installs the official candidate in a temporary worktree, runs Upgrade Verify, and only then fast-forwards a clean source checkout. See [Harness source updates](docs/harness-update.md).
 
 The package contains the exact Harness and Profile closure required by that Stack. It does not contain other Profiles, plugins, or a shared runtime repository.
 
@@ -197,6 +206,7 @@ The package contains the exact Harness and Profile closure required by that Stac
 - [Phase 2 lifecycle](docs/phase-2-lifecycle.md) — Base/Derived/Rebase/Share model and evidence boundary
 - [Update Manifest example](docs/update-manifest.example.json) — release metadata shape for architecture-specific update checks
 - [Release update feed runbook](docs/release-update-feed.md) — publish a versioned App plus the evergreen Update Manifest feed
+- [Harness source updates](docs/harness-update.md) — check and safely synchronize the official Harness checkout from Terminal
 - [Phase 2 review](PHASE_2_REVIEW.md) — PASS / FAIL / UNSUPPORTED conclusions
 
 ## Security boundary

@@ -182,9 +182,18 @@ pnpm dsh-stack verify ./artifacts/imported --harness ../deepseek-harness
 
 # 用明确的 Harness checkout 验证升级候选
 pnpm dsh-stack upgrade-verify <current-stack> ../deepseek-harness --json
+
+# 检查官方 Harness 源码，不修改当前 checkout
+pnpm dsh-stack harness-check ../deepseek-harness --remote origin --ref master --json
+
+# 验证候选后，显式同步干净的源码 checkout
+pnpm dsh-stack harness-update <current-stack> ../deepseek-harness \
+  --remote origin --ref master --apply --report ./artifacts/harness-update.json
 ```
 
 `promote`、`pack` 和 `package` 会在操作内部执行真实 Runtime Verify，不信任被编辑或过期的 `verification.receipt.json`。`update` 会 Rebase，保留已验证的物化依赖闭包，然后才切换 `--active <profile-directory>`；验证前不会覆盖当前 Profile。
+
+终端 Harness 更新分两阶段：`harness-check` 不修改当前工作分支；`harness-update --apply` 会先在临时 worktree 中安装官方依赖并执行 Upgrade Verify，只有 PASS 后才快进干净的源码 checkout。详见[Harness 源码更新](docs/harness-update.md)。
 
 每个 App 只包含该 Stack 所需的精确 Harness 和 Profile 闭包，不包含其他 Profile、插件或共享运行时仓库。
 
@@ -197,6 +206,7 @@ pnpm dsh-stack upgrade-verify <current-stack> ../deepseek-harness --json
 - [Phase 2 Lifecycle](docs/phase-2-lifecycle.md) —— Base/Derived/Rebase/Share 模型和证据边界
 - [Update Manifest 示例](docs/update-manifest.example.json) —— 按架构发布更新检查元数据的格式
 - [发布更新源 Runbook](docs/release-update-feed.md) —— 发布带版本的 App 并维护常青 Update Manifest 更新源
+- [Harness 源码更新](docs/harness-update.md) —— 在终端检查并安全同步官方 Harness checkout
 - [Phase 2 Review](PHASE_2_REVIEW.md) —— PASS / FAIL / UNSUPPORTED 结论
 
 ## 安全边界

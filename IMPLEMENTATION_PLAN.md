@@ -93,14 +93,14 @@ The record must distinguish evidence from expectation. A fixture PASS is not a r
 
 The detailed execution record for M1–M16 is maintained in [`docs/phase-2-lifecycle-record.md`](docs/phase-2-lifecycle-record.md). M9, M10, M14, M15, M16 and STOP AND REVIEW intentionally retain `INCOMPLETE`/pending evidence where an external Harness install path, newer upstream version, clean machine, or Apple credential is required. M17–M22 are the active User Data Preservation and Update Transaction work; until M22 passes, “upgrade does not affect user data” remains `INCOMPLETE`.
 
-## Harness reality frozen by the initial audit
+## Harness reality after the rc.7 source sync
 
 The adapter is based on the checked-out DeepSeek Harness implementation, not on assumptions from the PRD:
 
 | Contract question | Observed implementation | Adapter consequence |
 |---|---|---|
 | Harness root | Repository root containing `apps/cli`, `packages`, `native`, and `pnpm-workspace.yaml` | Detect a source checkout by its root and CLI manifests; allow an explicit `DSH_HARNESS_ROOT`/`--harness` override |
-| Harness version | `apps/cli/package.json` is `0.1.0-rc.5`; `dsh --version` reads the package manifest adjacent to the CLI entrypoint | Record the exact CLI version and verify it against the Stack pin |
+| Harness version | `apps/cli/package.json` is now `0.1.0-rc.7`; `dsh --version` reads the package manifest adjacent to the CLI entrypoint | Record the exact CLI version and verify it against the Stack pin |
 | Harness package manager | Root `package.json` declares `packageManager: pnpm@11.7.0`; the current host reports pnpm `11.12.0` | Record required and observed versions separately; do not create a second resolver |
 | CLI source launch | `pnpm dsh ...` invokes `node --import tsx/esm apps/cli/src/bin.ts` from the Harness root | Source adapter invokes this official script with a temporary `DSH_HOME` |
 | Installed CLI launch | `apps/cli/package.json` exposes `dsh: lib/bin.js` | Installed adapter may invoke the published `dsh` binary; no global binary is assumed |
@@ -900,6 +900,48 @@ None.
 #### 10. Readiness for Next Milestone
 
 Reference / RC packaging is ready for both x86_64 and arm64 assets. Stable `v0.1.0` is not ready until arm64 App/Live Agent UAT, clean-machine coverage for the supported architectures, and Developer ID signing/notarization/stapling are complete.
+
+### 2026-08-18 — Harness rc.7 sync and terminal update path
+
+#### 1. Implementation Summary
+
+Fast-forwarded the official `deepseek-ai/deepseek-harness` checkout from rc.5 to rc.7 (`99f6f02fecdb7dff40c3fbc9470f5907c29f74ca`). Added `harness-check` for non-mutating remote comparison and `harness-update` with an explicit `--apply` gate. Apply uses a temporary detached worktree, the official `pnpm install --frozen-lockfile`, the official `pnpm run build` when declared, Upgrade Verify, Runtime Verify PASS, then fast-forwards the clean source checkout and installs its lockfile closure.
+
+#### 2. Files Changed
+
+`packages/core/src/upstream.ts`, `packages/core/src/types.ts`, `packages/core/tests/upstream-update.test.ts`, `packages/cli/src/main.ts`, `packages/cli/tests/cli.test.ts`, `docs/harness-update.md`, `README.md`, `README.zh-CN.md`, and this plan.
+
+#### 3. Architecture Decisions
+
+Git remains the source-ref authority and pnpm remains the dependency resolver. DSH Stack does not edit Harness Profiles or create a second runtime. Candidate source is built and verified outside the active checkout; source synchronization is allowed only after Runtime Verify PASS. App updates and terminal source updates remain separate lifecycle paths.
+
+#### 4. Tests Added
+
+Added remote/ref comparison tests for `UP_TO_DATE`, `UPDATE_AVAILABLE`, clean/dirty source state, and CLI parser coverage for dry-run versus explicit `--apply`.
+
+#### 5. Test Results
+
+`pnpm typecheck` passed; `pnpm test` passed with 51/51 tests. Real official rc.5 → rc.7 Upgrade Verify passed. The real terminal `harness-update --apply` path passed after the candidate worktree ran the official build: candidate Runtime Verify PASS, source fast-forward to `99f6f02`, and final dependency install completed. A first attempt correctly failed on `MissingClientBundleError` before the generic official build step was added.
+
+#### 6. Failure Fixtures Added
+
+The missing built Web bundle in a clean candidate worktree is recorded as a real failure mode; the updater now runs the official Harness build script when present and will not turn that failure into PASS.
+
+#### 7. Known Limitations
+
+The final active-checkout pnpm install occurs after the fast-forward; if that install fails, the command reports an incomplete source sync and requires the user to rerun the official pnpm command. The mechanism currently targets Git source checkouts and does not update installed npm-only Harness distributions.
+
+#### 8. Security Boundaries
+
+Candidate builds run in a temporary worktree with `DEEPSEEK_API_KEY` removed from the install environment. Runtime Verify uses localhost Web UI readiness only and makes no LLM request. No Profile, App, or User State is switched before candidate PASS.
+
+#### 9. PRD Deviations
+
+None.
+
+#### 10. Readiness for Next Milestone
+
+Terminal source checking and guarded synchronization are ready for use. The rc.7 local Reference App was rebuilt as `0.2.0-rc.12` with Runtime Verify PASS and installed locally; public Release publication remains a separate manual release decision.
 
 ## Regression fixture inventory
 

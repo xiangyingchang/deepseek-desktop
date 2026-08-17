@@ -66,3 +66,23 @@ test('Phase 2 lifecycle commands preserve their explicit path arity', () => {
   assert.equal(update.activePath, '/tmp/active')
   assert.throws(() => parseArgs(['update', 'old', 'current', 'new']), /update requires --active/)
 })
+
+test('Harness update commands separate check from source mutation', () => {
+  const check = parseArgs(['harness-check', '../deepseek-harness', '--remote', 'origin', '--ref', 'master', '--json'])
+  assert.notEqual(check, 'help')
+  assert.notEqual(check, 'version')
+  if (check === 'help' || check === 'version') return
+  assert.equal(check.command, 'harness-check')
+  assert.equal(check.remote, 'origin')
+  assert.equal(check.ref, 'master')
+  assert.equal(check.apply, false)
+
+  const update = parseArgs(['harness-update', 'current-stack', '../deepseek-harness', '--apply', '--report', '/tmp/harness-update.json'])
+  assert.notEqual(update, 'help')
+  assert.notEqual(update, 'version')
+  if (update === 'help' || update === 'version') return
+  assert.equal(update.command, 'harness-update')
+  assert.deepEqual(update.operands, ['current-stack', '../deepseek-harness'])
+  assert.equal(update.apply, true)
+  assert.equal(update.report, '/tmp/harness-update.json')
+})
