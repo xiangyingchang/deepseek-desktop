@@ -73,8 +73,8 @@ test('signApp fails the build instead of shipping a binary it cannot sign', { sk
     // Appending bytes breaks the __LINKEDIT structure: codesign refuses to
     // sign it, and Package must surface which binary is broken instead of
     // shipping a bundle AMFI would kill at first load.
-    await appendFile(join(resources, 'node'), 'breaks-the-macho-structure')
     await chmod(join(resources, 'node'), 0o755)
+    await appendFile(join(resources, 'node'), 'breaks-the-macho-structure')
     await assert.rejects(() => signApp(appPath), /Unable to sign embedded binary/u)
   } finally {
     await rm(root, { recursive: true, force: true })

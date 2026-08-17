@@ -87,6 +87,32 @@ async function readLifecycleState() {
   try { return JSON.parse(await readFile(lifecycleState, 'utf8')) } catch { return undefined }
 }
 
+async function availablePort() {
+  const server = createServer()
+  await new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
+  const address = server.address()
+  await new Promise(resolve => server.close(resolve))
+  if (!address || typeof address === 'string') throw new Error('unable to allocate a local port')
+  return address.port
+}
+
+async function waitForWeb(url, child) {
+  for (let i = 0; i < 60; i += 1) {
+    if (child.exitCode !== null) throw new Error(`official Harness exited before the Web UI became ready (code ${child.exitCode})`)
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(1000) })
+      if (response.ok) return
+    } catch {
+      // The official Harness is still booting its plugin graph.
+    }
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+  throw new Error(`official Harness Web UI did not become ready at ${url}`)
+}
+
 async function verifyCandidateProfile(candidateProfile) {
   const root = join(appData, `.verify-${Date.now()}`)
   const dshHome = join(root, 'dsh-home')
@@ -216,32 +242,6 @@ async function updateDerivedProfileIfNeeded() {
 
 try {
   await updateDerivedProfileIfNeeded()
-
-async function availablePort() {
-  const server = createServer()
-  await new Promise((resolve, reject) => {
-    server.once('error', reject)
-    server.listen(0, '127.0.0.1', resolve)
-  })
-  const address = server.address()
-  await new Promise(resolve => server.close(resolve))
-  if (!address || typeof address === 'string') throw new Error('unable to allocate a local port')
-  return address.port
-}
-
-async function waitForWeb(url, child) {
-  for (let i = 0; i < 60; i += 1) {
-    if (child.exitCode !== null) throw new Error(`official Harness exited before the Web UI became ready (code ${child.exitCode})`)
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(1000) })
-      if (response.ok) return
-    } catch {
-      // The official Harness is still booting its plugin graph.
-    }
-    await new Promise(resolve => setTimeout(resolve, 500))
-  }
-  throw new Error(`official Harness Web UI did not become ready at ${url}`)
-}
 
 const port = await availablePort()
 const nodePath = join(resources, 'node')
