@@ -36,7 +36,6 @@ function sameMetadata(manifests) {
     'harnessVersion',
     'minimumMacOS',
     'releaseNotesUrl',
-    'publishedAt',
   ]
   const first = manifests[0]
   for (const field of fields) {
@@ -75,6 +74,11 @@ export function mergeUpdateManifests(manifests) {
       const order = { x64: 0, arm64: 1 }
       return order[left.arch] - order[right.arch]
     }),
+    publishedAt: manifests
+      .map(manifest => manifest.publishedAt)
+      .filter(value => typeof value === 'string' && value.length > 0)
+      .sort()
+      .at(-1),
   }
 }
 

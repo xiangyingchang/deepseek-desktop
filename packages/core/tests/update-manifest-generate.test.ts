@@ -105,6 +105,23 @@ test('merge combines one validated asset per architecture with stable metadata',
   assert.equal(manifest.appVersion, '0.2.0-rc.10')
 })
 
+test('merge uses the newest publication time when architecture builds finish separately', () => {
+  const base = {
+    schemaVersion: 1,
+    distributionId: 'dsh-web',
+    channel: 'rc',
+    appVersion: '0.2.0-rc.12',
+    baseVersion: '0.1.0',
+    baseIntegrity: `sha256-${digest}`,
+    harnessVersion: '0.1.0-rc.7',
+    minimumMacOS: '12.0',
+    releaseNotesUrl: 'https://github.com/xiangyingchang/deepseek-desktop/releases',
+  }
+  const x64 = { ...base, publishedAt: '2026-08-18T00:00:00.000Z', assets: [{ arch: 'x64' }] }
+  const arm64 = { ...base, publishedAt: '2026-08-18T00:05:00.000Z', assets: [{ arch: 'arm64' }] }
+  assert.equal(mergeUpdateManifests([x64, arm64]).publishedAt, '2026-08-18T00:05:00.000Z')
+})
+
 test('merge rejects duplicate architecture assets', () => {
   const manifest = {
     schemaVersion: 1,
