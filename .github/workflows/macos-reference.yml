@@ -141,5 +141,5 @@ jobs:
 
           while IFS= read -r -d '' asset; do
             gh release upload "$tag" "$asset" --clobber --repo "$GITHUB_REPOSITORY"
-          done < <(find dist/release -type f \( -name '*.dmg' -o -name '*.dmg.sha256' -o -name '*verification.receipt.json' -o -name '*package-size-report.json' \) -print0 | sort -z)
+          done < <(find dist/release -mindepth 2 -maxdepth 2 -type f \( -name '*.dmg' -o -name '*.dmg.sha256' -o -name '*verification.receipt.json' -o -name '*package-size-report.json' \) -print0 | sort -z)
           gh release upload "$tag" dist/release/update-manifest.json --clobber --repo "$GITHUB_REPOSITORY"
