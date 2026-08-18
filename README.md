@@ -194,9 +194,9 @@ pnpm dsh-stack harness-update <current-stack> ../deepseek-harness \
 
 `promote`, `pack`, and `package` run the real Runtime Verify as part of the guarded operation; they do not trust an edited or stale `verification.receipt.json`. `update` rebases, keeps the verified materialized dependency closure, and only then switches `--active <profile-directory>`. It never overwrites the active Profile before verification.
 
-Terminal Harness updates are two-phase: `harness-check` is read-only for the working branch, while `harness-update --apply` installs the official candidate in a temporary worktree, runs Upgrade Verify, and only then fast-forwards a clean source checkout. See [Harness source updates](docs/harness-update.md).
+Terminal Harness updates are two-phase: `harness-check` is read-only for the working branch, while `harness-update --apply` installs the official candidate in a temporary worktree, runs Upgrade Verify, and only then fast-forwards a clean source checkout. After it passes, `scripts/update-harness-pin.mjs` records the exact verified commit for CI and upstream monitoring. See [Harness source updates](docs/harness-update.md).
 
-A scheduled [Harness Update Check](.github/workflows/harness-update-check.yml) workflow runs the read-only check daily and keeps one labeled tracking issue open while an official upstream update is pending, closing it automatically once the checkout is up to date again. It never applies an update itself.
+A scheduled [Harness Update Check](.github/workflows/harness-update-check.yml) workflow compares the committed Harness baseline in `config/harness-pin.json` with the official upstream. It keeps one labeled tracking issue open while an update is pending and closes it when the source pin catches up. It never changes the pin or applies an update; Freeze, Verify, Package, and a new App Release remain explicit maintainer steps.
 
 The package contains the exact Harness and Profile closure required by that Stack. It does not contain other Profiles, plugins, or a shared runtime repository.
 

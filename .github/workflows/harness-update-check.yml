@@ -2,7 +2,7 @@ name: Harness Update Check
 
 # Scheduled upstream monitoring for the official DeepSeek Harness:
 #
-#   - daily read-only `dsh-stack harness-check` against origin/master
+#   - daily read-only `dsh-stack harness-check` against the configured upstream ref
 #   - UPDATE_AVAILABLE -> keep one labeled tracking issue open (auto-created,
 #     refreshed while the update is pending, auto-closed when up to date)
 #   - UP_TO_DATE -> green run, no issue
@@ -19,8 +19,8 @@ on:
     - cron: '30 2 * * *'
   workflow_dispatch:
     inputs:
-      ref:
-        description: 'Official Harness ref to check (branch or tag)'
+      upstream_ref:
+        description: 'Official Harness upstream ref to check (branch or tag)'
         required: false
         default: 'master'
 
@@ -37,17 +37,44 @@ jobs:
     name: Check official Harness upstream
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      HARNESS_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || 'master' }}
     steps:
       - name: Checkout DSH Stack
         uses: actions/checkout@v4
 
-      - name: Checkout official Harness (shallow)
+      - name: Load current Harness pin
+        id: harness-pin
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs')
+          const pin = JSON.parse(fs.readFileSync('config/harness-pin.json', 'utf8'))
+          if (pin.schemaVersion !== 1 || !/^[0-9a-f]{40}$/.test(pin.commit) || typeof pin.repository !== 'string' || typeof pin.version !== 'string' || typeof pin.upstreamRef !== 'string' || pin.upstreamRef.length === 0) {
+            throw new Error('config/harness-pin.json is invalid')
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, [
+            'repository=' + pin.repository,
+            'version=' + pin.version,
+            'commit=' + pin.commit,
+            'upstreamRef=' + pin.upstreamRef,
+          ].join('\n') + '\n')
+          NODE
+
+      - name: Resolve Harness upstream ref
+        env:
+          DISPATCH_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.upstream_ref || '' }}
+          PIN_REF: ${{ steps.harness-pin.outputs.upstreamRef }}
+        run: |
+          set -euo pipefail
+          if [ -n "$DISPATCH_REF" ]; then
+            echo "HARNESS_UPSTREAM_REF=$DISPATCH_REF" >> "$GITHUB_ENV"
+          else
+            echo "HARNESS_UPSTREAM_REF=$PIN_REF" >> "$GITHUB_ENV"
+          fi
+
+      - name: Checkout current official Harness pin (shallow)
         uses: actions/checkout@v4
         with:
-          repository: deepseek-ai/deepseek-harness
-          ref: ${{ env.HARNESS_REF }}
+          repository: ${{ steps.harness-pin.outputs.repository }}
+          ref: ${{ steps.harness-pin.outputs.commit }}
           path: deepseek-harness
           fetch-depth: 1
 
@@ -66,7 +93,7 @@ jobs:
       - name: Run harness-check
         run: |
           set +e
-          pnpm dsh-stack harness-check deepseek-harness --remote origin --ref "$HARNESS_REF" --json \
+          pnpm dsh-stack harness-check deepseek-harness --remote origin --ref "$HARNESS_UPSTREAM_REF" --json \
             > harness-check.raw.out 2> harness-check.stderr
           CHECK_EXIT=$?
           set -e
@@ -102,7 +129,7 @@ jobs:
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           node scripts/harness-update-issue.mjs \
             --check harness-check.json \
-            --ref "$HARNESS_REF" \
+            --ref "$HARNESS_UPSTREAM_REF" \
             --run-url "$RUN_URL" \
             --out-dir . \
             --summary >> "$GITHUB_STEP_SUMMARY"
@@ -111,7 +138,18 @@ jobs:
           gh label create harness-update \
             --description "Official Harness upstream update tracking" \
             --color 1D76DB 2>/dev/null || true
-          ISSUE_NUMBER=$(gh issue list --label harness-update --state open --json number --jq '.[0].number // empty')
+          OPEN_ISSUES=$(gh issue list --label harness-update --state open --limit 100 --json number,title)
+          ISSUE_NUMBER=$(node - "$OPEN_ISSUES" "$HARNESS_UPSTREAM_REF" <<'NODE'
+          const issues = JSON.parse(process.argv[2])
+          const ref = process.argv[3]
+          const matches = issues.filter(issue => issue.title.startsWith(`Harness update available [${ref}]:`))
+          if (matches.length > 1) {
+            console.error(`More than one open Harness update issue exists for ${ref}. Resolve duplicates before retrying.`)
+            process.exit(1)
+          }
+          process.stdout.write(matches[0] === undefined ? '' : String(matches[0].number))
+          NODE
+          )
 
           if [ "$STATUS" = "UPDATE_AVAILABLE" ]; then
             if [ -z "$ISSUE_NUMBER" ]; then

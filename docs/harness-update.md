@@ -74,19 +74,30 @@ Profile, App, and User State remain unchanged. A final pnpm installation error
 is reported as an incomplete source sync; rerun the printed pnpm command before
 using the updated checkout.
 
+After a successful `harness-update --apply`, promote the exact verified
+checkout into the committed baseline before committing the maintainer change:
+
+Run `node scripts/update-harness-pin.mjs --harness ../deepseek-harness --pin config/harness-pin.json`.
+The promotion command is deliberately separate from synchronization. It refuses
+dirty or non-official checkouts and only records the exact Harness commit and
+CLI version; it does not fetch, merge, install, verify, or publish an App. The
+scheduled monitor becomes `UP_TO_DATE` only after this pin change is committed.
+
 The report contains the candidate Harness commit and Verification Receipt. It
 does not contain API keys, sessions, prompt history, or responses. No LLM
 request is required: Runtime Verify only proves official Web UI readiness.
 
 ## Scheduled upstream monitoring
 
-A scheduled GitHub Actions workflow watches the official upstream so a
-maintainer does not have to run `harness-check` manually to notice a new
-candidate:
+A scheduled GitHub Actions workflow compares the repository's committed Harness
+baseline with the official upstream so a maintainer does not have to run
+`harness-check` manually to notice a new candidate. The baseline is recorded in
+`config/harness-pin.json`; it is not the moving upstream branch:
 
 ```text
 .github/workflows/harness-update-check.yml
-daily 02:30 UTC (or manual dispatch) -> harness-check --json -> tracking issue
+config/harness-pin.json -> checkout exact commit ->
+harness-check --ref master -> tracking issue
 ```
 
 Behavior:
@@ -100,11 +111,14 @@ Behavior:
 - `UNAVAILABLE`: the job fails so a broken monitor is visible in the Actions
   history.
 
-The workflow is read-only. It never applies an upstream update, edits a
-Profile, or touches User State; applying a candidate remains the explicit
-`harness-update --apply` decision described above. Manual dispatches can
-select a different official ref (branch or tag) through the `ref` input, which
-keeps the immutable-tag check reproducible.
+The workflow is read-only. It never changes `config/harness-pin.json`, applies an
+upstream update, edits a Profile, or touches User State. Applying a candidate
+remains the explicit `harness-update --apply` decision described above, followed
+by Freeze, Verify, Package, and a deliberate App Release. Closing the issue only
+means that the committed source pin is caught up; it does not mean that a new
+DeepSeek Desktop App has been published. Manual dispatches can select a
+different official upstream ref (branch or tag) through the `upstream_ref` input,
+which keeps immutable-tag checks reproducible.
 
 The issue content is rendered by `scripts/harness-update-issue.mjs`, which is
 covered by the ordinary test suite

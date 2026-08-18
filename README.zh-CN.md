@@ -194,9 +194,9 @@ pnpm dsh-stack harness-update <current-stack> ../deepseek-harness \
 
 `promote`、`pack` 和 `package` 会在操作内部执行真实 Runtime Verify，不信任被编辑或过期的 `verification.receipt.json`。`update` 会 Rebase，保留已验证的物化依赖闭包，然后才切换 `--active <profile-directory>`；验证前不会覆盖当前 Profile。
 
-终端 Harness 更新分两阶段：`harness-check` 不修改当前工作分支；`harness-update --apply` 会先在临时 worktree 中安装官方依赖并执行 Upgrade Verify，只有 PASS 后才快进干净的源码 checkout。详见[Harness 源码更新](docs/harness-update.md)。
+终端 Harness 更新分两阶段：`harness-check` 不修改当前工作分支；`harness-update --apply` 会先在临时 worktree 中安装官方依赖并执行 Upgrade Verify，只有 PASS 后才快进干净的源码 checkout。通过后，再用 `scripts/update-harness-pin.mjs` 记录已验证的精确 commit，供 CI 和上游监控使用。详见[Harness 源码更新](docs/harness-update.md)。
 
-定时监控由 [Harness Update Check](.github/workflows/harness-update-check.yml) 工作流负责：每天对官方上游做一次只读检查，发现更新时自动维护一个带 `harness-update` 标签的跟踪 Issue，checkout 回到最新后自动关闭。工作流本身从不执行更新。
+定时监控由 [Harness Update Check](.github/workflows/harness-update-check.yml) 工作流负责：它将 `config/harness-pin.json` 中提交的 Harness 基线与官方上游比较。每天做一次只读检查，发现更新时自动维护一个带 `harness-update` 标签的跟踪 Issue，源码 pin 追上后自动关闭。工作流不会修改 pin，也不会执行更新；Freeze、Verify、Package 和发布新的 App 仍需维护者明确操作。
 
 每个 App 只包含该 Stack 所需的精确 Harness 和 Profile 闭包，不包含其他 Profile、插件或共享运行时仓库。
 

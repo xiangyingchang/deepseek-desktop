@@ -49,12 +49,32 @@ test('UPDATE_AVAILABLE renders issue title and body with the manual update comma
   const { outDir } = await render(updateAvailableReport)
   try {
     const title = await readFile(join(outDir, 'harness-issue-title.txt'), 'utf8')
-    assert.match(title, /Harness update available: 0\.1\.0-rc\.8 \(aaaabbbbcccc\)/)
+    assert.match(title, /Harness update available \[master\]: 0\.1\.0-rc\.8 \(aaaabbbbcccc\)/)
     const body = await readFile(join(outDir, 'harness-issue-body.md'), 'utf8')
     assert.match(body, /Candidate on `master` \| 0\.1\.0-rc\.8/)
     assert.match(body, /--remote origin --ref master/)
     assert.match(body, /--apply --report \.\/artifacts\/harness-update\.json/)
-    assert.match(body, /never applies an update/)
+    assert.match(body, /node scripts\/update-harness-pin\.mjs/)
+    assert.match(body, /--pin "\$CURRENT_STACK\/config\/harness-pin\.json"/)
+    assert.ok(body.includes('CURRENT_STACK=".'))
+    assert.ok(body.includes('HARNESS_CHECKOUT="../deepseek-harness"'))
+    assert.doesNotMatch(body, /examples\/reference/)
+    assert.match(body, /workflow never applies/)
+    assert.match(body, /does not publish an App/)
+  } finally {
+    await rm(outDir, { recursive: true, force: true })
+  }
+})
+
+test('UPDATE_AVAILABLE renders maintainer-provided checkout paths', async () => {
+  const { outDir } = await render(updateAvailableReport, [
+    '--stack-root', '/Users/maintainer/dsh-stack',
+    '--harness-root', '/Users/maintainer/deepseek-harness',
+  ])
+  try {
+    const body = await readFile(join(outDir, 'harness-issue-body.md'), 'utf8')
+    assert.match(body, /CURRENT_STACK="\/Users\/maintainer\/dsh-stack"/)
+    assert.match(body, /HARNESS_CHECKOUT="\/Users\/maintainer\/deepseek-harness"/)
   } finally {
     await rm(outDir, { recursive: true, force: true })
   }
@@ -67,6 +87,7 @@ test('UP_TO_DATE renders only the auto-close comment', async () => {
     assert.deepEqual(files.filter(name => name.startsWith('harness-issue-')), ['harness-issue-close-comment.txt'])
     const comment = await readFile(join(outDir, 'harness-issue-close-comment.txt'), 'utf8')
     assert.match(comment, /Up to date again: 0\.1\.0-rc\.7/)
+    assert.match(comment, /does not certify or publish/)
   } finally {
     await rm(outDir, { recursive: true, force: true })
   }

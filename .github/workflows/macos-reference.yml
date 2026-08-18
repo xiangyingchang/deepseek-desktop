@@ -30,11 +30,27 @@ jobs:
       - name: Checkout DSH Stack
         uses: actions/checkout@v4
 
-      - name: Checkout pinned official Harness
+      - name: Load current Harness pin
+        id: harness-pin
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs')
+          const pin = JSON.parse(fs.readFileSync('config/harness-pin.json', 'utf8'))
+          if (pin.schemaVersion !== 1 || !/^[0-9a-f]{40}$/.test(pin.commit) || typeof pin.repository !== 'string' || typeof pin.version !== 'string' || typeof pin.upstreamRef !== 'string' || pin.upstreamRef.length === 0) {
+            throw new Error('config/harness-pin.json is invalid')
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, [
+            `repository=${pin.repository}`,
+            `version=${pin.version}`,
+            `commit=${pin.commit}`,
+          ].join('\n') + '\n')
+          NODE
+
+      - name: Checkout current official Harness pin
         uses: actions/checkout@v4
         with:
-          repository: deepseek-ai/deepseek-harness
-          ref: 99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
+          repository: ${{ steps.harness-pin.outputs.repository }}
+          ref: ${{ steps.harness-pin.outputs.commit }}
           path: deepseek-harness
 
       - uses: pnpm/action-setup@v4

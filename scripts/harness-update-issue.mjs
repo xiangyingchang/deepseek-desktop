@@ -32,12 +32,15 @@ function cell(value) {
 
 const USAGE =
   'Usage: node scripts/harness-update-issue.mjs --check <harness-check.json> ' +
-  '[--ref master] [--run-url <url>] [--out-dir .] [--summary]'
+  '[--ref master] [--stack-root .] [--harness-root ../deepseek-harness] ' +
+  '[--run-url <url>] [--out-dir .] [--summary]'
 
 const { values } = parseArgs({
   options: {
     check: { type: 'string' },
     ref: { type: 'string', default: 'master' },
+    'stack-root': { type: 'string', default: '.' },
+    'harness-root': { type: 'string', default: '../deepseek-harness' },
     'run-url': { type: 'string', default: '' },
     'out-dir': { type: 'string', default: '.' },
     summary: { type: 'boolean', default: false },
@@ -64,13 +67,15 @@ if (status !== 'UP_TO_DATE' && status !== 'UPDATE_AVAILABLE' && status !== 'UNAV
 const current = report.current ?? {}
 const candidate = report.candidate
 const ref = values.ref
+const stackRoot = values['stack-root']
+const harnessRoot = values['harness-root']
 const runUrl = values['run-url']
 const observedAt = cell(report.observedAt)
 const outDir = resolve(values['out-dir'])
 const written = []
 
 if (status === 'UPDATE_AVAILABLE') {
-  const title = `Harness update available: ${cell(candidate?.version)} (${shortCommit(candidate?.commit)})`
+  const title = `Harness update available [${ref}]: ${cell(candidate?.version)} (${shortCommit(candidate?.commit)})`
   const body = [
     '## Official Harness update available',
     '',
@@ -85,16 +90,25 @@ if (status === 'UPDATE_AVAILABLE') {
     '',
     '### Next step (manual, verified)',
     '',
+    'Run this from the DSH Stack repository. Replace either path if your local',
+    'checkouts are located elsewhere:',
+    '',
     '```sh',
-    'pnpm dsh-stack harness-update examples/reference ../deepseek-harness \\',
-    `  --remote origin --ref ${ref} \\`,
+    'CURRENT_STACK=' + JSON.stringify(stackRoot),
+    'HARNESS_CHECKOUT=' + JSON.stringify(harnessRoot),
+    'pnpm dsh-stack harness-update "$CURRENT_STACK" "$HARNESS_CHECKOUT" \\',
+    '  --remote origin --ref ' + ref + ' \\',
     '  --apply --report ./artifacts/harness-update.json',
+    'node scripts/update-harness-pin.mjs \\',
+    '  --harness "$HARNESS_CHECKOUT" \\',
+    '  --pin "$CURRENT_STACK/config/harness-pin.json"',
     '```',
     '',
     'This issue is managed by the scheduled **Harness Update Check** workflow. It is',
     'refreshed on every check while an update is available and closes automatically',
-    'when the checkout is up to date again. The workflow never applies an update',
-    'itself; `harness-update --apply` stays an explicit maintainer decision.',
+    'when the committed Harness pin is up to date again. The workflow never applies',
+    'an update itself; `harness-update --apply`, Freeze, Verify, Package, and Release',
+    'remain explicit maintainer decisions. Closing this issue does not publish an App.',
     '',
     'See docs/harness-update.md for the two-phase update contract.',
   ].filter(line => line !== null).join('\n')
@@ -106,8 +120,9 @@ if (status === 'UPDATE_AVAILABLE') {
 if (status === 'UP_TO_DATE') {
   const comment = [
     `Up to date again: ${cell(current.version)} (\`${cell(current.commit)}\`) at ${observedAt}.`,
-    'Closing automatically; the workflow opens a new tracker if a new upstream',
-    'update appears later.',
+    'Closing the source-monitor tracker automatically. This does not certify or publish',
+    'a new DeepSeek Desktop App Release; the workflow opens a new tracker if a new',
+    'upstream update appears later.',
   ].join('\n')
   await writeFile(join(outDir, 'harness-issue-close-comment.txt'), `${comment}\n`)
   written.push('harness-issue-close-comment.txt')
