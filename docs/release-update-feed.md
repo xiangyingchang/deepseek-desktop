@@ -26,12 +26,12 @@ and install it through **DeepSeek Desktop -> Check for Updates…** and
    automatically at the end when both variables are set):
 
    ```bash
-   DSH_STACK_APP_VERSION=0.2.0-rc.11 \
-   DSH_STACK_RELEASE_TAG=v0.2.0-rc.11 \
+   DSH_STACK_APP_VERSION=0.2.0-rc.12 \
+   DSH_STACK_RELEASE_TAG=v0.2.0-rc.12 \
    DSH_STACK_STORAGE_ID=dsh-web-5590c2a0cb00b3a7 \
    DSH_STACK_UPDATE_MANIFEST_URL="https://github.com/<owner>/<repo>/releases/latest/download/update-manifest.json" \
    DSH_STACK_UPDATE_CHANNEL=rc \
-   DSH_STACK_OUTPUT_DIR="$PWD/dist/release/v0.2.0-rc.11" \
+   DSH_STACK_OUTPUT_DIR="$PWD/dist/release/v0.2.0-rc.12" \
    bash scripts/build-macos-reference.sh
    ```
 
@@ -50,14 +50,16 @@ and install it through **DeepSeek Desktop -> Check for Updates…** and
 
    ```bash
    node scripts/generate-update-manifest.mjs \
-     --dist dist/release/v0.2.0-rc.11 \
-     --tag v0.2.0-rc.11
+     --dist dist/release/v0.2.0-rc.12 \
+     --tag v0.2.0-rc.12
    ```
 
-2. **Publish on GitHub** (web UI, ~2 minutes):
-   - Create a Release with tag `v0.2.0-rc.11`.
+2. **Publish on GitHub** (prefer the repository workflow):
+   - Push an explicit version tag such as `v0.2.0-rc.12`; the macOS workflow runs native x64 and arm64 packaging through the same pipeline.
+   - The publish job merges the architecture manifests and uploads one `update-manifest.json` plus the matching DMGs, SHA-256 files, receipts, and package-size reports.
+   - If the Intel hosted runner is queued, use `Publish Reference Release from Verified Artifact` with the completed arm64 run ID and the draft Release tag. It downloads the verified artifact inside GitHub Actions, merges the manifests, and only then publishes.
    - Upload `DeepSeek-Desktop-Unofficial-macos-<arch>.dmg`, its `.sha256`, the
-     `-verification.receipt.json`, and `update-manifest.json` **with those
+     `-verification.receipt.json`, package-size report, and `update-manifest.json` **with those
      exact file names**.
    - Do **not** check "pre-release": `releases/latest/download/…` stops
      resolving to prereleases and every installed App's update check would
@@ -66,7 +68,7 @@ and install it through **DeepSeek Desktop -> Check for Updates…** and
      `curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/update-manifest.json`.
 
 3. **Existing Apps** pick it up on **Check for Updates…** (version must
-   compare greater, e.g. `0.2.0-rc.11` > `0.2.0-rc.10`), download the DMG,
+   compare greater, e.g. `0.2.0-rc.12` > `0.2.0-rc.11`), download the DMG,
    and install through **Install Update…**.
 
 ## Constraints enforced by the App and the manifest validator
@@ -79,9 +81,11 @@ and install it through **DeepSeek Desktop -> Check for Updates…** and
 
 ## Notes
 
-- Multi-architecture feeds: build each arch into the same output directory
-  (or merge), then run the generator once; it publishes one asset per `.app`
-  found. Currently one arch per directory is expected.
+- Multi-architecture feeds: build each architecture independently, then merge
+  the single-architecture manifests with
+  `scripts/merge-update-manifest.mjs`. Native closures can have different
+  `baseIntegrity` hashes; the manifest keeps the legacy global field for old
+  Apps and binds the exact hash on each `assets[].baseIntegrity` entry.
 - Ad-hoc signed builds (no `DSH_STACK_CODESIGN_IDENTITY`) are fine for
   personal distribution; Gatekeeper quarantine applies to downloaded DMGs
   as usual.

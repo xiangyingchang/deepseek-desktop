@@ -941,7 +941,49 @@ None.
 
 #### 10. Readiness for Next Milestone
 
-Terminal source checking and guarded synchronization are ready for use. The rc.7 local Reference App was rebuilt as `0.2.0-rc.12` with Runtime Verify PASS and installed locally; public Release publication remains a separate manual release decision.
+Terminal source checking and guarded synchronization are ready for use. The rc.7 local Reference App was rebuilt as `0.2.0-rc.12` with Runtime Verify PASS and installed locally; at the time of this entry, public Release publication was still a separate manual release decision.
+
+### 2026-08-18 — v0.2.0-rc.12 dual-architecture Release completion
+
+#### 1. Implementation Summary
+
+Completed the public Reference / RC release for the official Harness rc.7 line. The release now contains explicitly named Intel x86_64 and Apple Silicon arm64 DMGs, SHA-256 sidecars, package-size reports, architecture-specific Verification Receipts, and one HTTPS Update Manifest. The Release is non-prerelease so the evergreen `releases/latest/download/update-manifest.json` feed remains usable; it is still not Stable.
+
+#### 2. Files Changed
+
+`.github/workflows/macos-reference.yml`, `.github/workflows/publish-reference-release-from-artifact.yml`, `scripts/merge-update-manifest.mjs`, `scripts/generate-update-manifest.mjs`, `packages/core/src/types.ts`, `packages/core/src/update-manifest.ts`, `packages/core/assets/ReferenceShell.swift`, manifest tests, README files, UAT, release runbook, and this plan.
+
+#### 3. Architecture Decisions
+
+Both architectures continue to use the same Freeze → Verify → Materialize → Package pipeline. Native closures may legitimately have different exact Stack integrity hashes, so schemaVersion 1 keeps the legacy global `baseIntegrity` for older Apps and adds `assets[].baseIntegrity` for the exact architecture-specific closure. The candidate App's own Receipt and Integrity remain the final installation gate.
+
+#### 4. Tests Added
+
+Added combined-manifest tests for deterministic architecture ordering, asynchronous publication times, per-architecture integrity binding, and duplicate-architecture rejection. The release workflow also validates the presence of exactly x64 and arm64 assets before publishing.
+
+#### 5. Test Results
+
+`pnpm typecheck` passed; `pnpm test` passed with 54/54 tests. Local x86_64 rc.12 Freeze → Verify → Package, embedded Mach-O signature scan, DMG verification, and SHA-256 generation passed. GitHub Actions run `32091343105`, arm64 job `95573948490`, completed native macOS-14 Freeze → Verify → Package, Receipt generation, DMG verification, and artifact upload. Public Release API verification confirmed `v0.2.0-rc.12` is non-draft and non-prerelease; the evergreen manifest validates and contains both architectures. Both published SHA sidecars match their Release asset digests.
+
+#### 6. Failure Fixtures Added
+
+The real mixed-architecture integrity mismatch (`sha256-e6de…` x86_64 versus `sha256-1f2e…` arm64) is captured by the manifest merge regression. The first overly strict merge attempt failed before publication; the generic per-asset binding fix was then tested and rerun successfully.
+
+#### 7. Known Limitations
+
+Arm64 App launch, official UI, real Agent Session, and clean-machine UAT still require an Apple Silicon machine. Developer ID signing, Hardened Runtime release signing, notarization, and stapling remain external credential blocked. The x64 hosted macOS runner was queued by GitHub, so the verified local x64 artifact and completed native arm64 CI artifact were combined through the artifact-backed publish workflow.
+
+#### 8. Security Boundaries
+
+Release assets contain no API keys, credentials, sessions, or user data. The Update Manifest binds HTTPS URLs, architecture, SHA-256, Receipt URL, and per-architecture Stack integrity. Publishing only changes public release metadata and assets; it does not alter the official Harness or Profile composition.
+
+#### 9. PRD Deviations
+
+None.
+
+#### 10. Readiness for Next Milestone
+
+The dual-architecture Reference / RC distribution and evergreen update feed are ready for external testing. Stable release remains blocked by Apple Silicon manual UAT and Apple Developer signing/notarization gates.
 
 ## Regression fixture inventory
 

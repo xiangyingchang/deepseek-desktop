@@ -12,16 +12,16 @@ DSH Stack 不重新实现 Harness 运行时、插件系统、pnpm、依赖解析
 
 ## 下载
 
-打开[当前公开的 Reference / RC Release](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.2.0-rc.8)，根据你的 Mac 选择对应 DMG：
+打开[当前公开的 Reference / RC Release](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.2.0-rc.12)，根据你的 Mac 选择对应 DMG：
 
 | Mac 类型 | 下载 | 芯片架构 | 当前验证状态 |
 |---|---|---|---|
-| Intel Mac | [DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.8/DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg) | x86_64 | 原生 Freeze → Verify → Package 和 App 健康检查：PASS；Live Agent 和非开发者 UAT：待验证 |
-| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.8/DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg) | arm64 | 原生 Freeze → Verify → Package 和 DMG/App 完整性：PASS；实机 App 和 Live Agent UAT：待验证 |
+| Intel Mac | [DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.12/DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg) | x86_64 | rc.12 本机 Freeze → Verify → Package、Receipt、DMG 和 SHA-256：PASS |
+| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.12/DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg) | arm64 | rc.12 原生 macOS-14 CI Freeze → Verify → Package、Receipt、DMG 和 SHA-256：PASS |
 
 Release 页面同时提供对应的 SHA-256 文件、verification receipt 和 package-size report。公开资产名称会明确包含 `Intel` 或 `Apple-Silicon`。
 
-当前版本是 **Reference / RC 预发布版**，不是 Stable。公开 App 目前是 ad-hoc 签名且未公证，第一次打开时 macOS 可能显示安全提示。
+当前版本是 **Reference / RC**，不是 Stable。`v0.2.0-rc.12` 为保证常青更新源可用而明确设为非 Pre-release，但仍不是 Stable。公开 App 目前是 ad-hoc 签名且未公证，第一次打开时 macOS 可能显示安全提示。
 
 ## 安装和使用
 
@@ -88,6 +88,7 @@ Share This Setup → Preflight → Secret Scan → Freeze → Verify → Pack
 
 | 项目 | 状态 |
 |---|---|
+| 当前公开 Reference Release | [`v0.2.0-rc.12`](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.2.0-rc.12)，非 Pre-release；双架构 Update Manifest：PASS |
 | x86_64 Freeze → Verify → Package → DMG | PASS |
 | x86_64 App 启动和官方 Harness UI | PASS |
 | x86_64 真实 Agent Session 和重启 | PASS |
@@ -101,7 +102,7 @@ Share This Setup → Preflight → Secret Scan → Freeze → Verify → Pack
 
 | 项目 | 状态 |
 |---|---|
-| 官方 Base Freeze → Runtime Verify | 2026-08-16 PASS（`0.1.0-rc.5`，commit `47f9438`） |
+| 官方 Base Freeze → Runtime Verify | 2026-08-18 PASS（`0.1.0-rc.7`，commit `99f6f02`） |
 | Maintainer Promote → Candidate Verify | 官方 Web Profile PASS |
 | `.dshstack` Pack → Import → Runtime Verify | 官方 Web Profile PASS |
 | 三方 Rebase、冲突阻断、原子切换 | 自动化回归测试和隔离 App runtime E2E PASS |

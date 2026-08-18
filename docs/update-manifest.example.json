@@ -12,12 +12,14 @@
       "arch": "x64",
       "url": "https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.1/DeepSeek-Desktop-Unofficial-macOS-Intel-x86_64.dmg",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "baseIntegrity": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "receiptUrl": "https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.1/verification.receipt.json"
     },
     {
       "arch": "arm64",
       "url": "https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.1/DeepSeek-Desktop-Unofficial-macOS-Apple-Silicon-arm64.dmg",
       "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "baseIntegrity": "sha256-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
       "receiptUrl": "https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.1/verification.receipt.json"
     }
   ],

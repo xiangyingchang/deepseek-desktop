@@ -12,16 +12,16 @@ DSH Stack does not reimplement the Harness runtime, plugin system, pnpm, depende
 
 ## Download
 
-Open the [current public Reference / RC Release](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.2.0-rc.8) and download the DMG that matches your Mac:
+Open the [current public Reference / RC Release](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.2.0-rc.12) and download the DMG that matches your Mac:
 
 | Mac | Download | CPU | Current evidence |
 |---|---|---|---|
-| Intel Mac | [DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.8/DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg) | x86_64 | Native Freeze → Verify → Package and App health check: PASS; Live Agent and clean-machine UAT: pending |
-| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.8/DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg) | arm64 | Native Freeze → Verify → Package and DMG/App integrity: PASS; manual App and Live Agent UAT: pending |
+| Intel Mac | [DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.12/DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg) | x86_64 | rc.12 local Freeze → Verify → Package, Receipt, DMG and SHA-256: PASS |
+| Apple Silicon Mac | [DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg](https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.12/DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg) | arm64 | rc.12 native macOS-14 CI Freeze → Verify → Package, Receipt, DMG and SHA-256: PASS |
 
 The Release also contains matching SHA-256 files, verification receipts, and package-size reports. The public asset names explicitly include `Intel` or `Apple-Silicon`.
 
-This is a **Reference / RC pre-release**, not Stable. Current public apps are ad-hoc signed and not notarized, so macOS may show an approval warning on first launch.
+This is a **Reference / RC release**, not Stable. `v0.2.0-rc.12` is intentionally non-prerelease so the evergreen update feed works; it is still not Stable. Current public apps are ad-hoc signed and not notarized, so macOS may show an approval warning on first launch.
 
 ## Install and use
 
@@ -88,6 +88,7 @@ Do not download the source ZIP unless you are a developer. It is not the normal 
 
 | Area | Status |
 |---|---|
+| Current public Reference Release | [`v0.2.0-rc.12`](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.2.0-rc.12), non-prerelease; dual-architecture Update Manifest: PASS |
 | x86_64 Freeze → Verify → Package → DMG | PASS |
 | x86_64 App launch and official Harness UI | PASS |
 | x86_64 real Agent session and restart | PASS |
@@ -101,7 +102,7 @@ Do not download the source ZIP unless you are a developer. It is not the normal 
 
 | Area | Status |
 |---|---|
-| Official Base Freeze → Runtime Verify | PASS on 2026-08-16 (`0.1.0-rc.5`, commit `47f9438`) |
+| Official Base Freeze → Runtime Verify | PASS on 2026-08-18 (`0.1.0-rc.7`, commit `99f6f02`) |
 | Maintainer Promote → Candidate Verify | PASS on the official Web Profile |
 | `.dshstack` Pack → Import → Runtime Verify | PASS on the official Web Profile |
 | Three-way Rebase + conflict blocking + atomic switch | PASS in automated regression tests and isolated App runtime E2E |

@@ -4,7 +4,7 @@
 
 This is a manual black-box test. The tester must not be the implementer and must use a Mac without the frozen Profile preconfigured.
 
-The underlying technical project and CLI remain `DSH Stack` / `dsh-stack`. The current public `v0.2.0-rc.8` assets use the `DeepSeek-Desktop-Unofficial-macos-Intel-x86_64` and `DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64` naming. The historical `v0.1.0-reference-v10` asset names below are retained only as evidence labels.
+The underlying technical project and CLI remain `DSH Stack` / `dsh-stack`. The current public `v0.2.0-rc.12` assets use the `DeepSeek-Desktop-Unofficial-macos-Intel-x86_64` and `DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64` naming. The historical `v0.1.0-reference-v10` asset names below are retained only as evidence labels.
 
 ## Artifact under test
 
@@ -61,13 +61,14 @@ The saved official credential was exercised without exposing its value. On 2026-
 - The freshly generated x86_64 release App returned `RELEASE_X64_PASS` from a completed real turn.
 - Session metadata recorded `turn/end: completed` for all three successful turns. A separate earlier invalid-key session recorded `401 AUTH` and remains failure evidence.
 
-### Packaging E2E — PASS (arm64 native CI)
+### Packaging E2E — PASS (arm64 native CI, v0.2.0-rc.12)
 
-GitHub Actions run `31899143451` completed the standard packaging path on a native `macos-14` arm64 runner:
+GitHub Actions run `32091343105` completed the standard packaging path on a native `macos-14` arm64 runner:
 
 | Field | Recorded result |
 |---|---|
 | Architecture | arm64 |
+| Artifact | `DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg` |
 | Scope | Freeze → Verify / Prove → Materialize → Package → DMG |
 | Runtime receipt | PASS; `cacheUsed: false`; `environment.arch: arm64` |
 | Release assets | arm64 DMG, SHA-256 sidecar, and verification receipt uploaded |
@@ -75,14 +76,14 @@ GitHub Actions run `31899143451` completed the standard packaging path on a nati
 
 This is a native packaging result. It does not claim that an arm64 App was manually launched or that a real arm64 Agent turn was completed.
 
-### Current Reference RC asset validation — v0.2.0-rc.8
+### Current Reference RC asset validation — v0.2.0-rc.12
 
-The current public RC was built from `main` commit `4835d28c744b494953e1ebdeea8dc57b90b5bf9e` and published at [`v0.2.0-rc.8`](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.2.0-rc.8).
+The current public Reference / RC was published at [`v0.2.0-rc.12`](https://github.com/xiangyingchang/deepseek-desktop/releases/tag/v0.2.0-rc.12). Its receipts bind official Harness `0.1.0-rc.7`, commit `99f6f02`, and stable Storage Identity `dsh-web-5590c2a0cb00b3a7`.
 
 | Architecture | Evidence | Result |
 |---|---|---|
-| x86_64 | Native local Freeze → Verify → Package; ad-hoc signature; DMG verification; `DSH_STACK_READY` health check; `appVersion=0.2.0-rc.8`; stable `storageId` | **PASS** |
-| arm64 | Native GitHub Actions job `95205197411`; Freeze → Verify → Package; DMG verification; mounted App signature and architecture check; `appVersion=0.2.0-rc.8`; stable `storageId` | **PASS** |
+| x86_64 | Native local Freeze → Verify → Package; ad-hoc signature; DMG verification; Receipt and SHA-256 match; `appVersion=0.2.0-rc.12`; stable `storageId` | **PASS** |
+| arm64 | Native GitHub Actions job `95573948490` in run `32091343105`; Freeze → Verify → Package; DMG verification; mounted App signature and architecture check; `appVersion=0.2.0-rc.12`; stable `storageId` | **PASS** |
 
 This RC-specific record does not claim a new arm64 Live Agent session or clean-machine UAT. Those remain pending. The GitHub run's x86_64 job was cancelled after native Intel runner capacity remained queued; the published Intel asset is the independently verified native local build above.
 
@@ -102,7 +103,7 @@ No Terminal command, manual Profile edit, lockfile repair, or PATH repair was re
 
 ### Release readiness — Reference / RC, not Stable
 
-`v0.2.0-rc.8` is the current public Reference / RC pre-release; `v0.1.0-reference-v10` remains preserved as the first historical public Reference release. The current Release must not be relabeled Stable until arm64 App/Live Agent UAT, clean-machine UAT, Developer ID signing, Hardened Runtime, notarization, and stapling are complete.
+`v0.2.0-rc.12` is the current public Reference / RC Release and is intentionally non-prerelease so `releases/latest/download/update-manifest.json` works; it is not Stable. `v0.1.0-reference-v10` remains preserved as the first historical public Reference release. The current Release must not be treated as Stable until arm64 App/Live Agent UAT, clean-machine UAT, Developer ID signing, Hardened Runtime, notarization, and stapling are complete.
 
 x86_64 clean-machine UAT is now **PASS** on a second non-developer Intel Mac. Apple Developer signing/notarization remain **PENDING**.
 
@@ -135,7 +136,7 @@ x86_64 clean-machine UAT is now **PASS** on a second non-developer Intel Mac. Ap
 | Restart succeeded | PASS (single-machine) | v10 was terminated, relaunched, and completed `RESTART_PASS` using the persisted credential |
 | No developer intervention | PASS (x86_64) | Second non-developer Intel Mac completed the full path with zero Terminal or developer steps |
 | x86_64 native Package/App/DMG | PASS (single-machine) | Fresh Freeze/Verify/Package; `hdiutil verify` passed |
-| arm64 native Freeze/Verify/Package/DMG | PASS (CI) | Run `31899143451`; native `macos-14` runner; receipt `environment.arch: arm64`; assets published |
+| arm64 native Freeze/Verify/Package/DMG | PASS (CI) | Run `32091343105`, job `95573948490`; native `macos-14` runner; receipt `environment.arch: arm64`; Release asset published |
 | arm64 App launch / official UI / real Agent turn | PENDING | No Apple Silicon machine is available for manual App and live-provider validation |
 | Apple Developer signing/notarization | PENDING / external credential blocked | Only Apple Development identity is present; no Developer ID Application identity or notary credentials |
 
