@@ -1,0 +1,79 @@
+name: Publish Reference Release from Verified Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: GitHub Actions run containing the verified arm64 artifact
+        required: true
+        type: string
+      release_tag:
+        description: Existing draft Release tag to complete
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    name: Complete dual-architecture Reference Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release tooling
+        uses: actions/checkout@v4
+
+      - name: Download verified arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deepseek-desktop-unofficial-macos-arm64
+          path: dist/release/arm64
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.source_run_id }}
+
+      - name: Download x64 manifest from the draft Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist/release/x64
+          gh release download "${{ inputs.release_tag }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern update-manifest.json \
+            --dir dist/release/x64
+
+      - name: Merge and validate the two architecture manifests
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from 'node:fs/promises'
+          import { mergeUpdateManifests } from './scripts/merge-update-manifest.mjs'
+
+          const readJson = async path => JSON.parse(await readFile(path, 'utf8'))
+          const x64 = await readJson('dist/release/x64/update-manifest.json')
+          const arm64 = await readJson('dist/release/arm64/update-manifest.json')
+          const merged = mergeUpdateManifests([x64, arm64])
+          const architectures = merged.assets.map(asset => asset.arch)
+          if (architectures.length !== 2 || architectures[0] !== 'x64' || architectures[1] !== 'arm64') {
+            throw new Error(`Expected x64 + arm64 manifest, received ${architectures.join(', ')}`)
+          }
+          await writeFile('dist/release/update-manifest.json', `${JSON.stringify(merged, null, 2)}\n`)
+          console.log(`Merged ${merged.appVersion}: ${architectures.join(', ')}`)
+          NODE
+
+      - name: Upload arm64 assets and the combined manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.release_tag }}"
+          while IFS= read -r -d '' asset; do
+            gh release upload "$tag" "$asset" --clobber --repo "$GITHUB_REPOSITORY"
+          done < <(find dist/release/arm64 -mindepth 1 -maxdepth 1 -type f \( -name '*.dmg' -o -name '*.dmg.sha256' -o -name '*verification.receipt.json' -o -name '*package-size-report.json' \) -print0 | sort -z)
+          gh release upload "$tag" dist/release/update-manifest.json --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Publish the completed Release as Latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ inputs.release_tag }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
