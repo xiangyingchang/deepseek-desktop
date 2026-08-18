@@ -78,6 +78,40 @@ The report contains the candidate Harness commit and Verification Receipt. It
 does not contain API keys, sessions, prompt history, or responses. No LLM
 request is required: Runtime Verify only proves official Web UI readiness.
 
+## Scheduled upstream monitoring
+
+A scheduled GitHub Actions workflow watches the official upstream so a
+maintainer does not have to run `harness-check` manually to notice a new
+candidate:
+
+```text
+.github/workflows/harness-update-check.yml
+daily 02:30 UTC (or manual dispatch) -> harness-check --json -> tracking issue
+```
+
+Behavior:
+
+- `UPDATE_AVAILABLE`: one open tracking issue (label `harness-update`) is
+  created and refreshed on every check while the update is pending. It contains
+  the current/candidate versions and commits and the exact verified
+  `harness-update --apply` command to run locally.
+- `UP_TO_DATE`: the tracking issue is closed automatically and the run stays
+  green.
+- `UNAVAILABLE`: the job fails so a broken monitor is visible in the Actions
+  history.
+
+The workflow is read-only. It never applies an upstream update, edits a
+Profile, or touches User State; applying a candidate remains the explicit
+`harness-update --apply` decision described above. Manual dispatches can
+select a different official ref (branch or tag) through the `ref` input, which
+keeps the immutable-tag check reproducible.
+
+The issue content is rendered by `scripts/harness-update-issue.mjs`, which is
+covered by the ordinary test suite
+(`packages/cli/tests/harness-update-issue.test.ts`). Two GitHub platform
+limits apply: scheduled runs only execute from the default branch, and
+schedules are disabled after 60 days of repository inactivity.
+
 ## App release policy
 
 Passing a terminal Harness update does not silently update an installed App or

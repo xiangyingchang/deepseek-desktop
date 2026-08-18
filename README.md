@@ -196,6 +196,8 @@ pnpm dsh-stack harness-update <current-stack> ../deepseek-harness \
 
 Terminal Harness updates are two-phase: `harness-check` is read-only for the working branch, while `harness-update --apply` installs the official candidate in a temporary worktree, runs Upgrade Verify, and only then fast-forwards a clean source checkout. See [Harness source updates](docs/harness-update.md).
 
+A scheduled [Harness Update Check](.github/workflows/harness-update-check.yml) workflow runs the read-only check daily and keeps one labeled tracking issue open while an official upstream update is pending, closing it automatically once the checkout is up to date again. It never applies an update itself.
+
 The package contains the exact Harness and Profile closure required by that Stack. It does not contain other Profiles, plugins, or a shared runtime repository.
 
 ## Documentation
@@ -207,7 +209,7 @@ The package contains the exact Harness and Profile closure required by that Stac
 - [Phase 2 lifecycle](docs/phase-2-lifecycle.md) — Base/Derived/Rebase/Share model and evidence boundary
 - [Update Manifest example](docs/update-manifest.example.json) — release metadata shape for architecture-specific update checks
 - [Release update feed runbook](docs/release-update-feed.md) — publish a versioned App plus the evergreen Update Manifest feed
-- [Harness source updates](docs/harness-update.md) — check and safely synchronize the official Harness checkout from Terminal
+- [Harness source updates](docs/harness-update.md) — check and safely synchronize the official Harness checkout from Terminal, plus the scheduled upstream monitor
 - [Phase 2 review](PHASE_2_REVIEW.md) — PASS / FAIL / UNSUPPORTED conclusions
 
 ## Security boundary

@@ -196,6 +196,8 @@ pnpm dsh-stack harness-update <current-stack> ../deepseek-harness \
 
 终端 Harness 更新分两阶段：`harness-check` 不修改当前工作分支；`harness-update --apply` 会先在临时 worktree 中安装官方依赖并执行 Upgrade Verify，只有 PASS 后才快进干净的源码 checkout。详见[Harness 源码更新](docs/harness-update.md)。
 
+定时监控由 [Harness Update Check](.github/workflows/harness-update-check.yml) 工作流负责：每天对官方上游做一次只读检查，发现更新时自动维护一个带 `harness-update` 标签的跟踪 Issue，checkout 回到最新后自动关闭。工作流本身从不执行更新。
+
 每个 App 只包含该 Stack 所需的精确 Harness 和 Profile 闭包，不包含其他 Profile、插件或共享运行时仓库。
 
 ## 文档
@@ -207,7 +209,7 @@ pnpm dsh-stack harness-update <current-stack> ../deepseek-harness \
 - [Phase 2 Lifecycle](docs/phase-2-lifecycle.md) —— Base/Derived/Rebase/Share 模型和证据边界
 - [Update Manifest 示例](docs/update-manifest.example.json) —— 按架构发布更新检查元数据的格式
 - [发布更新源 Runbook](docs/release-update-feed.md) —— 发布带版本的 App 并维护常青 Update Manifest 更新源
-- [Harness 源码更新](docs/harness-update.md) —— 在终端检查并安全同步官方 Harness checkout
+- [Harness 源码更新](docs/harness-update.md) —— 在终端检查并安全同步官方 Harness checkout，含定时上游监控
 - [Phase 2 Review](PHASE_2_REVIEW.md) —— PASS / FAIL / UNSUPPORTED 结论
 
 ## 安全边界
