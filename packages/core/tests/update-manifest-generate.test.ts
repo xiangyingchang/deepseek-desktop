@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -9,6 +9,7 @@ import { selectUpdateAsset, validateUpdateManifest } from '../src/update-manifes
 // module. Keep the test import aligned with the runtime loading path used by the
 // App assets, instead of teaching the core package to compile external scripts.
 const { buildUpdateManifest, parseGitHubRepo } = await import(new URL('../../../scripts/generate-update-manifest.mjs', import.meta.url).href)
+const { buildCombinedUpdateManifest, mergeUpdateManifests } = await import(new URL('../../../scripts/merge-update-manifest.mjs', import.meta.url).href)
 
 const digest = 'b'.repeat(64)
 
@@ -80,4 +81,43 @@ test('generator parses HTTPS and SSH GitHub remotes into owner/name', () => {
   assert.equal(parseGitHubRepo('https://github.com/xiangyingchang/deepseek-desktop.git'), 'xiangyingchang/deepseek-desktop')
   assert.equal(parseGitHubRepo('git@github.com:xiangyingchang/deepseek-desktop'), 'xiangyingchang/deepseek-desktop')
   assert.equal(parseGitHubRepo('https://gitlab.com/example/repo.git'), undefined)
+})
+
+test('merge combines one validated asset per architecture with stable metadata', async () => {
+  const x64 = await stageDist()
+  const arm64 = await stageDist()
+  const armApp = join(arm64, 'DeepSeek Desktop (Unofficial).app')
+  const armClientPath = join(armApp, 'Contents', 'Resources', 'client.json')
+  const armClient = JSON.parse(await readFile(armClientPath, 'utf8'))
+  armClient.architecture = 'arm64'
+  await writeFile(armClientPath, JSON.stringify(armClient))
+  await rename(join(arm64, 'DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg'), join(arm64, 'DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg'))
+  await rename(join(arm64, 'DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg.sha256'), join(arm64, 'DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg.sha256'))
+  await rename(join(arm64, 'DeepSeek-Desktop-Unofficial-macos-Intel-x86_64-verification.receipt.json'), join(arm64, 'DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64-verification.receipt.json'))
+  await writeFile(join(arm64, 'DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg.sha256'), `${digest}  DeepSeek-Desktop-Unofficial-macos-Apple-Silicon-arm64.dmg\n`)
+  const manifest = await buildCombinedUpdateManifest({
+    distDirs: [arm64, x64],
+    tag: 'v0.2.0-rc.12',
+    repo: 'xiangyingchang/deepseek-desktop',
+    publishedAt: '2026-08-18T00:00:00.000Z',
+  })
+  assert.deepEqual(manifest.assets.map((asset: { arch: string }) => asset.arch), ['x64', 'arm64'])
+  assert.equal(manifest.appVersion, '0.2.0-rc.10')
+})
+
+test('merge rejects duplicate architecture assets', () => {
+  const manifest = {
+    schemaVersion: 1,
+    distributionId: 'dsh-web',
+    channel: 'rc',
+    appVersion: '0.2.0-rc.12',
+    baseVersion: '0.1.0',
+    baseIntegrity: `sha256-${digest}`,
+    harnessVersion: '0.1.0-rc.7',
+    minimumMacOS: '12.0',
+    releaseNotesUrl: 'https://github.com/xiangyingchang/deepseek-desktop/releases',
+    publishedAt: '2026-08-18T00:00:00.000Z',
+    assets: [{ arch: 'x64' }],
+  }
+  assert.throws(() => mergeUpdateManifests([manifest, manifest]), /duplicate asset architecture/u)
 })

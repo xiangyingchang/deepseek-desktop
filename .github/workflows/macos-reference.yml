@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: deepseek-ai/deepseek-harness
-          ref: 47f943859bef60e4160492346772ded9b24f765a
+          ref: 99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
           path: deepseek-harness
 
       - uses: pnpm/action-setup@v4
@@ -82,9 +82,13 @@ jobs:
           DSH_STACK_OUTPUT_DIR: ${{ github.workspace }}/dist/release/${{ matrix.arch }}
           DSH_STACK_TRACE: '1'
           DSH_STACK_STORAGE_ID: dsh-web-5590c2a0cb00b3a7
+          DSH_STACK_UPDATE_MANIFEST_URL: https://github.com/${{ github.repository }}/releases/latest/download/update-manifest.json
+          DSH_STACK_UPDATE_CHANNEL: rc
+          DSH_STACK_RELEASE_REPO: ${{ github.repository }}
         run: |
           if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME:-}" == v* ]]; then
             export DSH_STACK_APP_VERSION="${GITHUB_REF_NAME#v}"
+            export DSH_STACK_RELEASE_TAG="$GITHUB_REF_NAME"
           fi
           bash scripts/build-macos-reference.sh
 
@@ -102,13 +106,28 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout release tooling
+        uses: actions/checkout@v4
+
       - name: Download architecture artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: deepseek-desktop-unofficial-macos-*
           path: dist/release
 
-      - name: Create prerelease and upload verified distribution assets
+      - name: Merge architecture update manifest
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          node scripts/merge-update-manifest.mjs \
+            --dist dist/release/deepseek-desktop-unofficial-macos-x64 \
+            --dist dist/release/deepseek-desktop-unofficial-macos-arm64 \
+            --tag "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --channel rc \
+            --out dist/release/update-manifest.json
+
+      - name: Create non-prerelease and upload verified distribution assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -117,9 +136,10 @@ jobs:
           gh release create "$tag" \
             --repo "$GITHUB_REPOSITORY" \
             --title "DeepSeek Desktop ${tag#v} (Unofficial Reference RC)" \
-            --prerelease \
+            --latest \
             --notes "DeepSeek Desktop ${tag#v} is an unofficial Reference / RC distribution powered by DSH Stack. Download the DMG matching your Mac: Intel x86_64 or Apple Silicon arm64. These artifacts are ad-hoc signed until Apple Developer signing and notarization are available."
 
           while IFS= read -r -d '' asset; do
             gh release upload "$tag" "$asset" --clobber --repo "$GITHUB_REPOSITORY"
           done < <(find dist/release -type f \( -name '*.dmg' -o -name '*.dmg.sha256' -o -name '*verification.receipt.json' -o -name '*package-size-report.json' \) -print0 | sort -z)
+          gh release upload "$tag" dist/release/update-manifest.json --clobber --repo "$GITHUB_REPOSITORY"
