@@ -238,6 +238,8 @@ export interface DistributionUpdateAsset {
   arch: 'x64' | 'arm64'
   url: string
   sha256: string
+  /** Exact Stack artifact hash for this architecture's App closure. */
+  baseIntegrity?: string
   bytes?: number
   receiptUrl?: string
 }

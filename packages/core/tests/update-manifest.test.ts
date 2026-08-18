@@ -15,8 +15,8 @@ function manifest(overrides: Record<string, unknown> = {}): Record<string, unkno
     harnessVersion: '0.1.0-rc.6',
     minimumMacOS: '12.0',
     assets: [
-      { arch: 'x64', url: 'https://github.com/example/release-x64.dmg', sha256: digest },
-      { arch: 'arm64', url: 'https://github.com/example/release-arm64.dmg', sha256: digest },
+      { arch: 'x64', url: 'https://github.com/example/release-x64.dmg', sha256: digest, baseIntegrity: `sha256-${digest}` },
+      { arch: 'arm64', url: 'https://github.com/example/release-arm64.dmg', sha256: digest, baseIntegrity: `sha256-${digest}` },
     ],
     ...overrides,
   }

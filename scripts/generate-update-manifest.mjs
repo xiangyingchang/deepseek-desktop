@@ -150,6 +150,7 @@ export async function buildUpdateManifest(options) {
       arch,
       url: `${releaseBase}/${encodeURIComponent(dmgName)}`,
       sha256,
+      baseIntegrity,
       bytes,
       receiptUrl: `${releaseBase}/${encodeURIComponent(receiptName)}`,
     }],

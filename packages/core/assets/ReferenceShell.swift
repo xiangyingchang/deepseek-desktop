@@ -19,6 +19,7 @@ private struct UpdateAsset: Decodable {
     let arch: String
     let url: String
     let sha256: String
+    let baseIntegrity: String?
 }
 
 private struct UpdateManifest: Decodable {
@@ -272,7 +273,8 @@ private final class ReferenceAppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             let asset = manifest.assets.first { $0.arch == currentArchitecture }
-            guard let asset, let assetURL = URL(string: asset.url), assetURL.scheme == "https", asset.sha256.range(of: "^[a-fA-F0-9]{64}$", options: .regularExpression) != nil else {
+            guard let asset, let assetURL = URL(string: asset.url), assetURL.scheme == "https", asset.sha256.range(of: "^[a-fA-F0-9]{64}$", options: .regularExpression) != nil,
+                  asset.baseIntegrity == nil || asset.baseIntegrity?.range(of: "^sha256-[a-fA-F0-9]{64}$", options: .regularExpression) != nil else {
                 showUpdateAlert(title: "Update Unavailable", message: "No trusted \(currentArchitecture) asset is available for this App.")
                 return
             }

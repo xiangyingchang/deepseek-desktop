@@ -63,6 +63,7 @@ function assetValue(value: unknown, index: number): DistributionUpdateAsset {
     url: httpsUrl(object.url, `assets[${index}].url`),
     sha256: sha256(object.sha256, `assets[${index}].sha256`),
   }
+  if (object.baseIntegrity !== undefined) asset.baseIntegrity = artifactIntegrity(object.baseIntegrity, `assets[${index}].baseIntegrity`)
   if (object.bytes !== undefined) {
     if (typeof object.bytes !== 'number' || !Number.isSafeInteger(object.bytes) || object.bytes <= 0) throw new DshStackError(diagnostic('UPDATE_MANIFEST_INVALID', 'UPDATE_CHECK', `assets[${index}].bytes must be a positive integer`, {
       component: `assets[${index}].bytes`,

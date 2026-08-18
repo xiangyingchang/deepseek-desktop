@@ -59,6 +59,7 @@ test('generator derives a valid manifest from a release output directory', async
   assert.equal(validated.publishedAt, '2026-08-18T00:00:00.000Z')
   const asset = selectUpdateAsset(validated, 'x64')
   assert.equal(asset.sha256, digest)
+  assert.equal(asset.baseIntegrity, `sha256-${digest}`)
   assert.equal(asset.url, 'https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.10/DeepSeek-Desktop-Unofficial-macos-Intel-x86_64.dmg')
   assert.equal(asset.receiptUrl, 'https://github.com/xiangyingchang/deepseek-desktop/releases/download/v0.2.0-rc.10/DeepSeek-Desktop-Unofficial-macos-Intel-x86_64-verification.receipt.json')
   assert.equal(asset.bytes, 'fake dmg payload'.length)
@@ -117,9 +118,12 @@ test('merge uses the newest publication time when architecture builds finish sep
     minimumMacOS: '12.0',
     releaseNotesUrl: 'https://github.com/xiangyingchang/deepseek-desktop/releases',
   }
-  const x64 = { ...base, publishedAt: '2026-08-18T00:00:00.000Z', assets: [{ arch: 'x64' }] }
-  const arm64 = { ...base, publishedAt: '2026-08-18T00:05:00.000Z', assets: [{ arch: 'arm64' }] }
-  assert.equal(mergeUpdateManifests([x64, arm64]).publishedAt, '2026-08-18T00:05:00.000Z')
+  const x64 = { ...base, baseIntegrity: `sha256-${'1'.repeat(64)}`, publishedAt: '2026-08-18T00:00:00.000Z', assets: [{ arch: 'x64' }] }
+  const arm64 = { ...base, baseIntegrity: `sha256-${'2'.repeat(64)}`, publishedAt: '2026-08-18T00:05:00.000Z', assets: [{ arch: 'arm64' }] }
+  const merged = mergeUpdateManifests([x64, arm64])
+  assert.equal(merged.publishedAt, '2026-08-18T00:05:00.000Z')
+  assert.equal(merged.baseIntegrity, `sha256-${'1'.repeat(64)}`)
+  assert.deepEqual(merged.assets.map((asset: { arch: string; baseIntegrity: string }) => asset.baseIntegrity), [`sha256-${'1'.repeat(64)}`, `sha256-${'2'.repeat(64)}`])
 })
 
 test('merge rejects duplicate architecture assets', () => {

@@ -32,7 +32,6 @@ function sameMetadata(manifests) {
     'channel',
     'appVersion',
     'baseVersion',
-    'baseIntegrity',
     'harnessVersion',
     'minimumMacOS',
     'releaseNotesUrl',
@@ -59,7 +58,13 @@ export function mergeUpdateManifests(manifests) {
     if (!Array.isArray(manifest.assets) || manifest.assets.length !== 1) {
       fail('each input manifest must contain exactly one asset')
     }
-    return manifest.assets
+    return manifest.assets.map(asset => {
+      const assetIntegrity = asset.baseIntegrity ?? manifest.baseIntegrity
+      if (assetIntegrity !== manifest.baseIntegrity) {
+        fail(`asset ${asset.arch} baseIntegrity does not match its manifest metadata`)
+      }
+      return { ...asset, baseIntegrity: assetIntegrity }
+    })
   })
   const seen = new Set()
   for (const asset of assets) {
@@ -68,8 +73,13 @@ export function mergeUpdateManifests(manifests) {
     seen.add(asset.arch)
   }
 
+  const legacyBaseIntegrity = assets.find(asset => asset.arch === 'x64')?.baseIntegrity ?? manifests[0].baseIntegrity
   return {
     ...manifests[0],
+    // schemaVersion 1 keeps this legacy global field for older Apps. New
+    // consumers must use assets[].baseIntegrity because native closures can
+    // legitimately differ between x64 and arm64.
+    baseIntegrity: legacyBaseIntegrity,
     assets: assets.sort((left, right) => {
       const order = { x64: 0, arm64: 1 }
       return order[left.arch] - order[right.arch]
